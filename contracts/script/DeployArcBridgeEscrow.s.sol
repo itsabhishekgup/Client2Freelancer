@@ -2,17 +2,18 @@
 pragma solidity ^0.8.13;
 
 import {Script} from "forge-std/Script.sol";
-import {Counter} from "../src/Counter.sol";
+import {ArcBridgeEscrow} from "../src/ArcBridgeEscrow.sol";
 
-contract CounterScript is Script {
-    Counter public counter;
+contract DeployArcBridgeEscrow is Script {
+    ArcBridgeEscrow public escrow;
 
     function setUp() public {}
 
     function run() public {
         vm.startBroadcast();
 
-        counter = new Counter();
+        escrow = new ArcBridgeEscrow( 0x3600000000000000000000000000000000000000 );
+
 
         vm.stopBroadcast();
     }
