@@ -1,10 +1,72 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+interface IERC20 {
+    function transfer(address to, uint256 value) external returns (bool);
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 value) external returns (bool);
+}
+
+library SafeERC20 {
+    error SafeERC20TransferFailed();
+    error SafeERC20TransferFromFailed();
+
+    function safeTransfer(IERC20 token, address to, uint256 value) internal {
+        bool success = token.transfer(to, value);
+        if (!success) revert SafeERC20TransferFailed();
+    }
+
+    function safeTransferFrom(IERC20 token, address from, address to, uint256 value) internal {
+        bool success = token.transferFrom(from, to, value);
+        if (!success) revert SafeERC20TransferFromFailed();
+    }
+}
+
+contract Ownable {
+    address private _owner;
+
+    error OwnableUnauthorizedAccount(address account);
+    error OwnableInvalidOwner(address owner);
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    constructor(address initialOwner) {
+        if (initialOwner == address(0)) revert OwnableInvalidOwner(address(0));
+        _owner = initialOwner;
+        emit OwnershipTransferred(address(0), initialOwner);
+    }
+
+    modifier onlyOwner() {
+        if (msg.sender != _owner) revert OwnableUnauthorizedAccount(msg.sender);
+        _;
+    }
+
+    function owner() public view returns (address) {
+        return _owner;
+    }
+
+    function transferOwnership(address newOwner) public onlyOwner {
+        if (newOwner == address(0)) revert OwnableInvalidOwner(newOwner);
+        address oldOwner = _owner;
+        _owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+}
+
+contract ReentrancyGuard {
+    bool private _entered;
+
+    error ReentrancyGuardReentrantCall();
+
+    modifier nonReentrant() {
+        if (_entered) revert ReentrancyGuardReentrantCall();
+        _entered = true;
+        _;
+        _entered = false;
+    }
+}
 
 contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;

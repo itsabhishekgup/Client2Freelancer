@@ -50,6 +50,13 @@ function CreateEscrow() {
 
     await tx.wait();
 
+    const allowance = await usdc.allowance(
+    await signer.getAddress(),
+      CONTRACT_ADDRESS
+   );
+
+      console.log("Allowance:", allowance.toString());
+
     alert("USDC Approved Successfully!");
   };
    
@@ -66,6 +73,54 @@ function CreateEscrow() {
   alert("Escrow Created Successfully!");
 
   };
+
+  const submitWork = async () => {
+   try {
+    const contract = await connectContract();
+
+    const tx = await contract.submitWork(Number(escrowId));
+
+    console.log("Submitting Work...");
+    await tx.wait();
+
+    alert("Work Submitted Successfully!");
+   } catch (err) {
+    console.error(err);
+    alert(err.shortMessage || err.reason || err.message);
+   }
+  };
+
+  const approveWork = async () => {
+   try {
+    const contract = await connectContract();
+
+    const tx = await contract.approveWork(Number(escrowId));
+
+    console.log("Approving Work...");
+    await tx.wait();
+
+    alert("Work Approved Successfully!");
+   } catch (err) {
+    console.error(err);
+    alert(err.shortMessage || err.reason || err.message);
+   }
+  };
+
+  const releaseFunds = async () => {
+   try {
+    const contract = await connectContract();
+
+    const tx = await contract.releaseFunds(Number(escrowId));
+
+    console.log("Releasing Funds...");
+    await tx.wait();
+
+    alert("Funds Released Successfully!");
+   } catch (err) {
+    console.error(err);
+    alert(err.shortMessage || err.reason || err.message);
+   }
+ };
   
   const depositFunds = async () => {
    try {
@@ -77,6 +132,9 @@ function CreateEscrow() {
 
     const escrow = await contract.escrows(id);
     console.log("Escrow:", escrow);
+
+    console.log("Client:", escrow.client);
+    console.log("Current Wallet:", await contract.runner.getAddress());
 
     const tx = await contract.depositFunds(id);
 
@@ -126,6 +184,18 @@ function CreateEscrow() {
 
       <button onClick={depositFunds}>
         Deposit Funds
+      </button>
+      
+      <button onClick={submitWork}>
+        Submit Work
+      </button>
+
+      <button onClick={approveWork}>
+        Approve Work
+      </button>
+
+      <button onClick={releaseFunds}>
+        Release Funds
       </button>
 
     </div>
