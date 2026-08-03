@@ -12,24 +12,29 @@ function Navbar() {
 
     const provider = new BrowserProvider(window.ethereum);
 
-    const accounts = await provider.send(
-      "eth_requestAccounts",
-      []
-    );
+    const accounts = await provider.send("eth_requestAccounts", []);
 
     setWallet(accounts[0]);
   }
 
   return (
-    <nav>
-      <h2>ArcBridge Escrow</h2>
+    <header className="top-navbar">
+      <div className="nav-left">
+        <div className="logo-section">
+          <h2>🔷 ArcBridge Escrow</h2>
 
-      <button onClick={connectWallet}>
-        {wallet
-          ? wallet.slice(0, 6) + "..." + wallet.slice(-4)
-          : "Connect Wallet"}
-      </button>
-    </nav>
+          <span className="network-badge">Arc Testnet</span>
+        </div>
+      </div>
+
+      <div className="nav-right">
+        <button className="connect-wallet-btn" onClick={connectWallet}>
+          {wallet
+            ? wallet.slice(0, 6) + "..." + wallet.slice(-4)
+            : "Connect Wallet"}
+        </button>
+      </div>
+    </header>
   );
 }
 
