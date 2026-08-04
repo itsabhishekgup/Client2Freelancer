@@ -1,16 +1,20 @@
-import "./App.css" ;
+import "./styles/globals.css";
+import "./styles/dashboard.css";
+
 import Navbar from "./components/Navbar";
-import CreateEscrow from "./components/CreateEscrow";
+import Sidebar from "./components/Sidebar";
+import Dashboard from "./components/Dashboard";
 
 function App() {
   return (
-  <div className="container">
-    <Navbar />
+    <div className="app">
+      <Navbar />
 
-    <p>Secure USDC Escrow on Arc Network</p>
-
-    <CreateEscrow />
-  </div>
+      <div className="app-layout">
+        <Sidebar />
+        <Dashboard />
+      </div>
+    </div>
   );
 }
 
