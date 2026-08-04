@@ -1,4 +1,4 @@
-function ProgressStepper() {
+function ProgressStepper({ currentStep }) {
   const steps = [
     "Create Escrow",
     "Approve USDC",
@@ -7,8 +7,6 @@ function ProgressStepper() {
     "Approve Work",
     "Release Funds",
   ];
-
-  const currentStep = 0;
 
   return (
     <div className="card progress-stepper">

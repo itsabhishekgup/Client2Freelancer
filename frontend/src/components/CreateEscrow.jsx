@@ -7,10 +7,9 @@ import { approveUSDC } from "../contracts/wallet";
 
 const USDC_ADDRESS = "0x3600000000000000000000000000000000000000";
 
-function CreateEscrow() {
+function CreateEscrow({ escrowId, setEscrowId, setCurrentStep }) {
   const [freelancer, setFreelancer] = useState("");
   const [amount, setAmount] = useState("");
-  const [escrowId, setEscrowId] = useState("");
 
   async function handleApproveUSDC() {
     if (!amount || Number(amount) <= 0) {
@@ -24,6 +23,7 @@ function CreateEscrow() {
 
     if (success) {
       alert("USDC Approved Successfully!");
+      setCurrentStep(2);
     } else {
       alert("Approval Failed");
     }
@@ -44,12 +44,27 @@ function CreateEscrow() {
 
   const createEscrow = async () => {
     const contract = await connectContract();
-
+    console.log("Freelancer:", freelancer);
+    console.log("Amount:", amount);
     const tx = await contract.createEscrow(freelancer, parseUnits(amount, 6));
 
-    await tx.wait();
+    const receipt = await tx.wait();
 
-    alert("Escrow Created Successfully!");
+    const event = receipt.logs.find(
+      (log) => log.fragment?.name === "EscrowCreated",
+    );
+
+    if (!event || !event.args) {
+      alert("Escrow created, but event details were not found.");
+      return;
+    }
+
+    const newId = event.args.escrowId.toString();
+
+    setEscrowId(newId);
+
+    alert(`Escrow Created! ID: ${newId}`);
+    setCurrentStep(1);
   };
 
   const submitWork = async () => {
@@ -62,6 +77,7 @@ function CreateEscrow() {
       await tx.wait();
 
       alert("Work Submitted Successfully!");
+      setCurrentStep(4);
     } catch (err) {
       console.error(err);
       alert(err.shortMessage || err.reason || err.message);
@@ -78,6 +94,7 @@ function CreateEscrow() {
       await tx.wait();
 
       alert("Work Approved Successfully!");
+      setCurrentStep(5);
     } catch (err) {
       console.error(err);
       alert(err.shortMessage || err.reason || err.message);
@@ -94,6 +111,7 @@ function CreateEscrow() {
       await tx.wait();
 
       alert("Funds Released Successfully!");
+      setCurrentStep(6);
     } catch (err) {
       console.error(err);
       alert(err.shortMessage || err.reason || err.message);
@@ -110,14 +128,21 @@ function CreateEscrow() {
 
       const escrow = await contract.escrows(id);
       console.log("Escrow:", escrow);
+      const wallet = await contract.runner.getAddress();
+
+      if (escrow.client.toLowerCase() !== wallet.toLowerCase()) {
+        alert("Wrong Escrow ID selected.");
+        return;
+      }
+      if (escrow.funded) {
+        alert("This escrow is already funded.");
+        return;
+      }
 
       console.log("Client:", escrow.client);
       console.log("Current Wallet:", await contract.runner.getAddress());
 
-      
       const usdc = new Contract(USDC_ADDRESS, USDC_ABI, contract.runner);
-
-      const wallet = await contract.runner.getAddress();
 
       const allowance = await usdc.allowance(wallet, CONTRACT_ADDRESS);
       const balance = await usdc.balanceOf(wallet);
@@ -132,6 +157,7 @@ function CreateEscrow() {
       await tx.wait();
 
       alert("Funds Deposited Successfully!");
+      setCurrentStep(3);
     } catch (err) {
       console.error(err);
       alert(err.shortMessage || err.reason || err.message);
