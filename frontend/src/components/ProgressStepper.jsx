@@ -1,4 +1,4 @@
-function ProgressStepper({ currentStep }) {
+function ProgressStepper({ currentStep = 0 }) {
   const steps = [
     "Create Escrow",
     "Approve USDC",
@@ -8,44 +8,32 @@ function ProgressStepper({ currentStep }) {
     "Release Funds",
   ];
 
+  const activeStep = Math.min(Math.max(Number(currentStep) || 0, 0), steps.length - 1);
+
   return (
-    <div className="card progress-stepper">
+    <section className="card progress-stepper" aria-label="Escrow progress">
+      <div className="progress-stepper-header">
+        <div>
+          <h3>Escrow Progress</h3>
+          <p>Secure • Transparent • Decentralized</p>
+        </div>
+      </div>
 
-      <h3>🚀 Escrow Progress</h3>
-
-      <p className="progress-subtitle">
-        Secure • Transparent • Decentralized
-      </p>
-
-      <div className="progress-line">
-
+      <div className="progress-track">
         {steps.map((step, index) => {
-
-          let status = "";
-
-          if (index < currentStep) {
-            status = "completed";
-          } else if (index === currentStep) {
-            status = "active";
-          }
+          let state = "pending";
+          if (index < activeStep) state = "completed";
+          else if (index === activeStep) state = "active";
 
           return (
-            <div
-              key={index}
-              className={"progress-item " + status}
-            >
-              <div className="progress-circle">
-                {index + 1}
-              </div>
-
-              <span>{step}</span>
+            <div key={step} className={`progress-step ${state}`}>
+              <div className="progress-circle">{index + 1}</div>
+              <span className="progress-label">{step}</span>
             </div>
           );
         })}
-
       </div>
-
-    </div>
+    </section>
   );
 }
 
