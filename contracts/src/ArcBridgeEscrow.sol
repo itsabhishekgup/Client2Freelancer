@@ -120,9 +120,9 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
     function depositFunds(uint256 id) external nonReentrant{
         Escrow storage e=escrows[id];
         if(e.client!=msg.sender) revert NotClient();
-        if(e.funded) revert AlreadyFunded();
-        e.funded=true;
+        if(e.funded) revert AlreadyFunded();       
         usdc.safeTransferFrom(msg.sender,address(this),e.amount);
+        e.funded=true;
         emit FundsDeposited(id,e.amount);
     }
 
