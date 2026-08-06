@@ -8,7 +8,7 @@ function ProgressStepper({ currentStep = 0 }) {
     "Release Funds",
   ];
 
-  const activeStep = Math.min(Math.max(Number(currentStep) || 0, 0), steps.length - 1);
+  const activeStep = Math.max(Number(currentStep) || 0, 0);
 
   return (
     <section className="card progress-stepper" aria-label="Escrow progress">
@@ -22,8 +22,14 @@ function ProgressStepper({ currentStep = 0 }) {
       <div className="progress-track">
         {steps.map((step, index) => {
           let state = "pending";
-          if (index < activeStep) state = "completed";
-          else if (index === activeStep) state = "active";
+
+          if (activeStep >= 6) {
+            state = "completed";
+          } else if (index < activeStep) {
+            state = "completed";
+          } else if (index === activeStep) {
+            state = "active";
+          }
 
           return (
             <div key={step} className={`progress-step ${state}`}>

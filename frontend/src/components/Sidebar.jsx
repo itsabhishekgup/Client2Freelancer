@@ -10,14 +10,7 @@ const NAV_ITEMS = [
 function Sidebar({ activeSection = "dashboard", onNavigate }) {
   return (
     <aside className="sidebar">
-      <div className="logo">
-        <img src="/arc-logo.svg" alt="Arc logo" className="brand-image brand-image--sidebar" />
-        <div>
-          <h2>ArcBridge Escrow</h2>
-          <p>Secure Payments</p>
-        </div>
-      </div>
-
+      
       <nav className="sidebar-menu" aria-label="Primary navigation">
         {NAV_ITEMS.map((item) => {
           const active = activeSection === item.id;
@@ -40,7 +33,7 @@ function Sidebar({ activeSection = "dashboard", onNavigate }) {
 
       <div className="sidebar-footnote">
         <p>Arc Testnet</p>
-        <strong>Premium glass dashboard</strong>
+        <strong>Powered by Circle</strong>
       </div>
     </aside>
   );
