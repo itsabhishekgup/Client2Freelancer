@@ -4,7 +4,12 @@ import escrowArtifact from "../contracts/ArcBridgeEscrow.json";
 import { CONTRACT_ADDRESS } from "../contracts/config";
 import { approveUSDC } from "../contracts/wallet";
 
-function CreateEscrow({ escrowId, setEscrowId, setCurrentStep = () => {} }) {
+function CreateEscrow({
+  escrowId,
+  setEscrowId,
+  setCurrentStep = () => {},
+  onBlockchainUpdate = () => {},
+}) {
   const [freelancer, setFreelancer] = useState("");
   const [amount, setAmount] = useState("");
 
@@ -19,6 +24,7 @@ function CreateEscrow({ escrowId, setEscrowId, setCurrentStep = () => {} }) {
     if (success) {
       alert("USDC Approved Successfully!");
       setCurrentStep(2);
+      onBlockchainUpdate();
     } else {
       alert("Approval Failed");
     }
@@ -72,6 +78,7 @@ function CreateEscrow({ escrowId, setEscrowId, setCurrentStep = () => {} }) {
 
       setEscrowId(newId);
       setCurrentStep(1);
+      onBlockchainUpdate(newId);
       alert(`Escrow Created! ID: ${newId}`);
     } catch (err) {
       console.error(err);
@@ -89,6 +96,7 @@ function CreateEscrow({ escrowId, setEscrowId, setCurrentStep = () => {} }) {
 
       alert("Work Submitted Successfully!");
       setCurrentStep(4);
+      onBlockchainUpdate(escrowId);
     } catch (err) {
       console.error(err);
       alert(err.shortMessage || err.reason || err.message);
@@ -105,6 +113,7 @@ function CreateEscrow({ escrowId, setEscrowId, setCurrentStep = () => {} }) {
 
       alert("Work Approved Successfully!");
       setCurrentStep(5);
+      onBlockchainUpdate(escrowId);
     } catch (err) {
       console.error(err);
       alert(err.shortMessage || err.reason || err.message);
@@ -121,6 +130,7 @@ function CreateEscrow({ escrowId, setEscrowId, setCurrentStep = () => {} }) {
 
       alert("Funds Released Successfully!");
       setCurrentStep(6);
+      onBlockchainUpdate(escrowId);
     } catch (err) {
       console.error(err);
       alert(err.shortMessage || err.reason || err.message);
@@ -157,6 +167,7 @@ function CreateEscrow({ escrowId, setEscrowId, setCurrentStep = () => {} }) {
 
       alert("Funds Deposited Successfully!");
       setCurrentStep(3);
+      onBlockchainUpdate(id);
     } catch (err) {
       console.error(err);
       alert(err.shortMessage || err.reason || err.message);
