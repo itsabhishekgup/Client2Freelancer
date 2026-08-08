@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BrowserProvider, Contract, formatUnits } from "ethers";
-import { connectWallet } from "../contracts/wallet";
+
 import { USDC_ABI } from "../contracts/USDCABI";
 import { USDC_ADDRESS } from "../contracts/constants";
+import { useWalletBridge } from "../hooks/useWalletBridge";
 
 const shortenAddress = (address) => {
   if (!address || typeof address !== "string") return "--";
@@ -11,62 +12,76 @@ const shortenAddress = (address) => {
 };
 
 function Navbar({ onNavigate }) {
-  const [walletAddress, setWalletAddress] = useState("");
-  const [usdcBalance, setUsdcBalance] = useState("");
-  const [connecting, setConnecting] = useState(false);
+  const { address, isConnected, walletProvider, openConnect, openAccount } =
+    useWalletBridge();
+  const [usdcBalance, setUsdcBalance] = useState("--");
+  const [loadingBalance, setLoadingBalance] = useState(false);
+  const [networkLabel, setNetworkLabel] = useState("Arc Testnet");
 
-  const syncWallet = useCallback(async () => {
-    if (!window.ethereum) return;
+  const providerSource = useMemo(
+    () => walletProvider ?? (typeof window !== "undefined" ? window.ethereum : null),
+    [walletProvider],
+  );
+
+  const refreshWalletView = useCallback(async () => {
+    if (!providerSource) {
+      setUsdcBalance("--");
+      setNetworkLabel("Arc Testnet");
+      setLoadingBalance(false);
+      return;
+    }
 
     try {
-      const provider = new BrowserProvider(window.ethereum);
-      const accounts = await provider.send("eth_accounts", []);
+      setLoadingBalance(true);
+      const provider = new BrowserProvider(providerSource);
+      const network = await provider.getNetwork();
 
-      if (!accounts || accounts.length === 0) {
-        setWalletAddress("");
-        setUsdcBalance("");
+      setNetworkLabel(
+        network?.name && network.name !== "unknown" ? network.name : "Arc Testnet",
+      );
+
+      if (!address) {
+        setUsdcBalance("--");
         return;
       }
 
-      const address = accounts[0];
       const usdc = new Contract(USDC_ADDRESS, USDC_ABI, provider);
       const balance = await usdc.balanceOf(address);
-
-      setWalletAddress(address);
-      setUsdcBalance(Number(formatUnits(balance, 6)).toFixed(2));
+      setUsdcBalance(`${Number(formatUnits(balance, 6)).toFixed(2)} USDC`);
     } catch (error) {
-      console.error("Navbar wallet sync error:", error);
+      console.error("Navbar wallet refresh error:", error);
+      setUsdcBalance("--");
+    } finally {
+      setLoadingBalance(false);
     }
-  }, []);
+  }, [address, providerSource]);
 
   useEffect(() => {
-    syncWallet();
+    refreshWalletView();
+  }, [refreshWalletView]);
 
-    if (!window.ethereum) return undefined;
+  useEffect(() => {
+    if (!providerSource || typeof providerSource.on !== "function") return undefined;
 
-    const handleAccountsChanged = () => syncWallet();
-    const handleChainChanged = () => syncWallet();
+    const handleAccountsChanged = () => refreshWalletView();
+    const handleChainChanged = () => refreshWalletView();
 
-    window.ethereum.on("accountsChanged", handleAccountsChanged);
-    window.ethereum.on("chainChanged", handleChainChanged);
+    providerSource.on("accountsChanged", handleAccountsChanged);
+    providerSource.on("chainChanged", handleChainChanged);
 
     return () => {
-      window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
-      window.ethereum.removeListener("chainChanged", handleChainChanged);
+      providerSource.removeListener?.("accountsChanged", handleAccountsChanged);
+      providerSource.removeListener?.("chainChanged", handleChainChanged);
     };
-  }, [syncWallet]);
+  }, [providerSource, refreshWalletView]);
 
-  const handleConnectWallet = async () => {
-    setConnecting(true);
-    try {
-      const data = await connectWallet();
-      if (data?.address) {
-        setWalletAddress(data.address);
-        setUsdcBalance(Number(data.usdcBalance).toFixed(2));
-      }
-    } finally {
-      setConnecting(false);
+  const handleWalletClick = () => {
+    if (isConnected) {
+      openAccount();
+      return;
     }
+
+    openConnect();
   };
 
   return (
@@ -94,19 +109,21 @@ function Navbar({ onNavigate }) {
 
         <button
           type="button"
-          className="wallet-pill"
-          onClick={handleConnectWallet}
-          aria-label="Connect wallet"
+          className={`wallet-pill ${isConnected ? "wallet-pill--connected" : ""}`}
+          onClick={handleWalletClick}
+          aria-label={isConnected ? "Open wallet account" : "Connect wallet"}
         >
           <span className="wallet-pill-line">
-            {connecting
-              ? "Connecting..."
-              : walletAddress
-                ? shortenAddress(walletAddress)
-                : "Connect Wallet"}
+            {isConnected
+              ? loadingBalance
+                ? "Refreshing..."
+                : shortenAddress(address)
+              : "Connect Wallet"}
           </span>
           <small>
-            {walletAddress ? `USDC Balance: ${usdcBalance}` : "Tap to connect"}
+            {isConnected
+              ? `${networkLabel} • ${usdcBalance}`
+              : "Tap to connect"}
           </small>
         </button>
       </div>

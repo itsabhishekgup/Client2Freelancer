@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { BrowserProvider, Contract, parseUnits } from "ethers";
+import { Contract, parseUnits } from "ethers";
+
 import escrowArtifact from "../contracts/ArcBridgeEscrow.json";
 import { CONTRACT_ADDRESS } from "../contracts/config";
-import { approveUSDC } from "../contracts/wallet";
+import { approveUSDC, getBrowserProvider } from "../contracts/wallet";
+import { useWalletBridge } from "../hooks/useWalletBridge";
 
 function CreateEscrow({
   escrowId,
@@ -12,6 +14,7 @@ function CreateEscrow({
 }) {
   const [freelancer, setFreelancer] = useState("");
   const [amount, setAmount] = useState("");
+  const { walletProvider, openConnect, isConnected } = useWalletBridge();
 
   async function handleApproveUSDC() {
     if (!amount || Number(amount) <= 0) {
@@ -19,7 +22,12 @@ function CreateEscrow({
       return;
     }
 
-    const success = await approveUSDC(amount);
+    if (!getBrowserProvider(walletProvider)) {
+      openConnect();
+      return;
+    }
+
+    const success = await approveUSDC(amount, walletProvider);
 
     if (success) {
       alert("USDC Approved Successfully!");
@@ -31,14 +39,15 @@ function CreateEscrow({
   }
 
   const connectContract = async () => {
-    if (!window.ethereum) {
-      alert("Please install an EVM-compatible wallet");
+    const provider = getBrowserProvider(walletProvider);
+
+    if (!provider) {
+      alert("Please connect a wallet first");
+      openConnect();
       return null;
     }
 
-    const provider = new BrowserProvider(window.ethereum);
     const signer = await provider.getSigner();
-
     return new Contract(CONTRACT_ADDRESS, escrowArtifact.abi, signer);
   };
 
@@ -54,7 +63,7 @@ function CreateEscrow({
 
       const tx = await contract.createEscrow(
         freelancer.trim(),
-        parseUnits(amount.toString(), 6)
+        parseUnits(amount.toString(), 6),
       );
 
       const receipt = await tx.wait();
@@ -86,17 +95,76 @@ function CreateEscrow({
     }
   };
 
+  const depositFunds = async () => {
+    try {
+      if (!getBrowserProvider(walletProvider)) {
+        openConnect();
+        return;
+      }
+
+      const escrowValue = escrowId?.toString?.() ?? String(escrowId ?? "").trim();
+      const id = Number(escrowValue);
+
+      if (!escrowValue || Number.isNaN(id) || id <= 0) {
+        alert("Enter escrow ID first");
+        return;
+      }
+
+      const provider = getBrowserProvider(walletProvider);
+      if (!provider) {
+        alert("Please connect a wallet first");
+        openConnect();
+        return;
+      }
+
+      const signer = await provider.getSigner();
+      const wallet = await signer.getAddress();
+      const contract = new Contract(CONTRACT_ADDRESS, escrowArtifact.abi, signer);
+
+      const escrow = await contract.escrows(id);
+
+      const client = escrow.client ?? escrow[0];
+      const funded = escrow.funded ?? escrow[3];
+
+      if (!client || client.toLowerCase() !== wallet.toLowerCase()) {
+        alert("Wrong Escrow ID selected.");
+        return;
+      }
+
+      if (funded) {
+        alert("This escrow is already funded.");
+        return;
+      }
+
+      const tx = await contract.depositFunds(id);
+      await tx.wait();
+
+      alert("Funds Deposited Successfully!");
+      setCurrentStep(3);
+      onBlockchainUpdate();
+    } catch (err) {
+      console.error(err);
+      alert(err.shortMessage || err.reason || err.message);
+    }
+  };
+
   const submitWork = async () => {
     try {
       const contract = await connectContract();
       if (!contract) return;
 
-      const tx = await contract.submitWork(Number(escrowId));
+      const escrowValue = escrowId?.toString?.() ?? String(escrowId ?? "").trim();
+      if (!escrowValue) {
+        alert("Enter escrow ID first");
+        return;
+      }
+
+      const tx = await contract.submitWork(Number(escrowValue));
       await tx.wait();
 
       alert("Work Submitted Successfully!");
       setCurrentStep(4);
-      onBlockchainUpdate(escrowId);
+      onBlockchainUpdate();
     } catch (err) {
       console.error(err);
       alert(err.shortMessage || err.reason || err.message);
@@ -108,12 +176,18 @@ function CreateEscrow({
       const contract = await connectContract();
       if (!contract) return;
 
-      const tx = await contract.approveWork(Number(escrowId));
+      const escrowValue = escrowId?.toString?.() ?? String(escrowId ?? "").trim();
+      if (!escrowValue) {
+        alert("Enter escrow ID first");
+        return;
+      }
+
+      const tx = await contract.approveWork(Number(escrowValue));
       await tx.wait();
 
       alert("Work Approved Successfully!");
       setCurrentStep(5);
-      onBlockchainUpdate(escrowId);
+      onBlockchainUpdate();
     } catch (err) {
       console.error(err);
       alert(err.shortMessage || err.reason || err.message);
@@ -125,49 +199,18 @@ function CreateEscrow({
       const contract = await connectContract();
       if (!contract) return;
 
-      const tx = await contract.releaseFunds(Number(escrowId));
+      const escrowValue = escrowId?.toString?.() ?? String(escrowId ?? "").trim();
+      if (!escrowValue) {
+        alert("Enter escrow ID first");
+        return;
+      }
+
+      const tx = await contract.releaseFunds(Number(escrowValue));
       await tx.wait();
 
       alert("Funds Released Successfully!");
       setCurrentStep(6);
-      onBlockchainUpdate(escrowId);
-    } catch (err) {
-      console.error(err);
-      alert(err.shortMessage || err.reason || err.message);
-    }
-  };
-
-  const depositFunds = async () => {
-    try {
-      const contract = await connectContract();
-      if (!contract) return;
-
-      const id = Number(escrowId);
-
-      if (!id || Number.isNaN(id)) {
-        alert("Enter a valid escrow ID");
-        return;
-      }
-
-      const escrow = await contract.escrows(id);
-      const wallet = await contract.runner.getAddress();
-
-      if (!escrow.client || escrow.client.toLowerCase() !== wallet.toLowerCase()) {
-        alert("Wrong Escrow ID selected.");
-        return;
-      }
-
-      if (escrow.funded) {
-        alert("This escrow is already funded.");
-        return;
-      }
-
-      const tx = await contract.depositFunds(id);
-      await tx.wait();
-
-      alert("Funds Deposited Successfully!");
-      setCurrentStep(3);
-      onBlockchainUpdate(id);
+      onBlockchainUpdate();
     } catch (err) {
       console.error(err);
       alert(err.shortMessage || err.reason || err.message);
@@ -175,7 +218,7 @@ function CreateEscrow({
   };
 
   return (
-    <div className="card create-escrow-card">
+    <section className="card create-escrow-card">
       <div className="create-escrow-head">
         <div className="section-mark">✦</div>
         <div>
@@ -203,19 +246,31 @@ function CreateEscrow({
       <input
         type="text"
         placeholder="Escrow ID"
-        value={escrowId}
+        value={escrowId || ""}
         onChange={(e) => setEscrowId(e.target.value)}
       />
 
-      <div className="action-grid">
-        <button onClick={createEscrow}>Create Escrow</button>
-        <button onClick={handleApproveUSDC}>Approve USDC</button>
-        <button onClick={depositFunds}>Deposit Funds</button>
-        <button onClick={submitWork}>Submit Work</button>
-        <button onClick={approveWork}>Approve Work</button>
-        <button onClick={releaseFunds}>Release Funds</button>
+      <div className="action-grid premium-action-grid">
+        <button type="button" onClick={createEscrow} className="premium-action-btn premium-action-btn--create">
+          Create Escrow
+        </button>
+        <button type="button" onClick={handleApproveUSDC} className="premium-action-btn premium-action-btn--approve">
+          Approve USDC
+        </button>
+        <button type="button" onClick={depositFunds} className="premium-action-btn premium-action-btn--deposit">
+          Deposit Funds
+        </button>
+        <button type="button" onClick={submitWork} className="premium-action-btn premium-action-btn--submit">
+          Submit Work
+        </button>
+        <button type="button" onClick={approveWork} className="premium-action-btn premium-action-btn--approve-work">
+          Approve Work
+        </button>
+        <button type="button" onClick={releaseFunds} className="premium-action-btn premium-action-btn--release">
+          Release Funds
+        </button>
       </div>
-    </div>
+    </section>
   );
 }
 

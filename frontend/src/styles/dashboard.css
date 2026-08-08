@@ -76,7 +76,11 @@
   justify-content: center;
   padding: 9px 14px;
   border-radius: 999px;
-  background: linear-gradient(135deg, rgba(219, 234, 254, 0.92), rgba(191, 219, 254, 0.72));
+  background: linear-gradient(
+    135deg,
+    rgba(219, 234, 254, 0.92),
+    rgba(191, 219, 254, 0.72)
+  );
   color: #2563eb;
   font-size: 13px;
   font-weight: 700;
@@ -91,7 +95,10 @@
   padding: 11px 16px;
   border-radius: 14px;
   font-weight: 700;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
 }
 
 .help-btn:hover {
@@ -112,7 +119,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .wallet-pill:hover {
@@ -178,7 +187,11 @@
   color: #334155;
   font-weight: 600;
   text-align: left;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .sidebar-menu button:hover {
@@ -205,7 +218,11 @@
   margin-top: 24px;
   padding: 16px;
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(219, 234, 254, 0.72), rgba(255, 255, 255, 0.54));
+  background: linear-gradient(
+    180deg,
+    rgba(219, 234, 254, 0.72),
+    rgba(255, 255, 255, 0.54)
+  );
   border: 1px solid rgba(147, 197, 253, 0.22);
 }
 
@@ -286,8 +303,16 @@
 .progress-stepper {
   padding: 26px 24px 24px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.44)),
-    radial-gradient(circle at top right, rgba(99, 102, 241, 0.14), transparent 32%);
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.58),
+      rgba(255, 255, 255, 0.44)
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(99, 102, 241, 0.14),
+      transparent 32%
+    );
 }
 
 .progress-stepper-header h3,
@@ -326,7 +351,11 @@
   top: 44px;
   height: 4px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(37, 99, 235, 0.12), rgba(148, 163, 184, 0.24));
+  background: linear-gradient(
+    90deg,
+    rgba(37, 99, 235, 0.12),
+    rgba(148, 163, 184, 0.24)
+  );
 }
 
 .progress-step {
@@ -391,7 +420,11 @@
   place-items: center;
   font-size: 24px;
   color: #4f46e5;
-  background: linear-gradient(135deg, rgba(219, 234, 254, 0.92), rgba(255, 255, 255, 0.72));
+  background: linear-gradient(
+    135deg,
+    rgba(219, 234, 254, 0.92),
+    rgba(255, 255, 255, 0.72)
+  );
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   flex: 0 0 auto;
 }
@@ -422,7 +455,10 @@
   padding: 14px 16px;
   background: rgba(255, 255, 255, 0.92);
   color: #0f172a;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .create-escrow-card input:focus {
@@ -449,7 +485,10 @@
   color: #fff;
   background: linear-gradient(135deg, #2563eb, #4f46e5);
   box-shadow: 0 14px 28px rgba(37, 99, 235, 0.18);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
 }
 
 .action-grid button:hover,
@@ -612,7 +651,11 @@
 .activity-empty {
   padding: 18px;
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(226, 232, 240, 0.32), rgba(255, 255, 255, 0.58));
+  background: linear-gradient(
+    180deg,
+    rgba(226, 232, 240, 0.32),
+    rgba(255, 255, 255, 0.58)
+  );
   border: 1px dashed rgba(148, 163, 184, 0.24);
   display: flex;
   flex-direction: column;
@@ -863,7 +906,11 @@
     display: flex;
     flex-direction: column;
     padding: 16px 16px 18px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 248, 255, 0.96));
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(244, 248, 255, 0.96)
+    );
     backdrop-filter: blur(24px);
     border-right: 1px solid rgba(148, 163, 184, 0.18);
     box-shadow: 24px 0 44px rgba(15, 23, 42, 0.14);
@@ -930,11 +977,18 @@
     padding: 14px 16px;
     border-radius: 16px;
     border: 1px solid rgba(37, 99, 235, 0.12);
-    background: linear-gradient(135deg, rgba(219, 234, 254, 0.94), rgba(239, 246, 255, 0.96));
+    background: linear-gradient(
+      135deg,
+      rgba(219, 234, 254, 0.94),
+      rgba(239, 246, 255, 0.96)
+    );
     color: #1d4ed8;
     font-weight: 700;
     text-align: left;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      background 0.2s ease;
   }
 
   .mobile-help-button:hover {
@@ -1049,5 +1103,276 @@
 
   .help-section {
     padding: 14px 14px 12px;
+  }
+}
+
+/* =====================================
+   Reown + premium mobile polish
+===================================== */
+.wallet-pill--connected {
+  background: linear-gradient(135deg, #0f766e, #2563eb);
+}
+
+@media (max-width: 768px) {
+  .help-btn {
+    display: none !important;
+  }
+
+  .wallet-pill {
+    min-width: 100%;
+  }
+
+  .wallet-pill-line {
+    font-size: 15px;
+  }
+
+  .wallet-pill small {
+    font-size: 11px;
+  }
+
+  .progress-step.active .progress-circle {
+    animation: stepPulse 1.8s ease-in-out infinite;
+  }
+
+  .progress-step.completed .progress-circle {
+    transform: translateY(-1px);
+  }
+
+  .card,
+  .dashboard-section,
+  .wallet-card,
+  .escrow-summary,
+  .activity-card,
+  .progress-stepper,
+  .create-escrow-card {
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+}
+
+@keyframes stepPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.12);
+  }
+
+  50% {
+    box-shadow: 0 0 0 10px rgba(37, 99, 235, 0.07);
+  }
+}
+
+/* ================================
+   PREMIUM WEB3 GLASSMORPHISM UI
+   Desktop-safe, lifecycle untouched
+================================== */
+
+/* Global premium surface */
+.card,
+.create-escrow-card,
+.wallet-card,
+.activity-card,
+.history-card,
+.help-section,
+.escrow-summary,
+.progress-stepper {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.72),
+    rgba(255, 255, 255, 0.46)
+  );
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid rgba(255, 255, 255, 0.44);
+  box-shadow:
+    0 20px 50px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.card::before,
+.create-escrow-card::before,
+.wallet-card::before,
+.activity-card::before,
+.history-card::before,
+.help-section::before,
+.escrow-summary::before,
+.progress-stepper::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(59, 130, 246, 0.18),
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(124, 58, 237, 0.16),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at bottom center,
+      rgba(14, 165, 233, 0.1),
+      transparent 30%
+    );
+  opacity: 0.9;
+}
+
+/* Title / text polish */
+.create-escrow-card h2,
+.wallet-card h3,
+.activity-card h3,
+.history-card h3,
+.help-section h4,
+.escrow-summary h3,
+.progress-stepper h3 {
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+/* Premium action grid */
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.action-grid button {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  min-height: 52px;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  box-shadow:
+    0 14px 28px rgba(37, 99, 235, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
+  overflow: hidden;
+}
+
+.action-grid button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 45%,
+    transparent 70%
+  );
+  transform: translateX(-120%);
+  transition: transform 0.55s ease;
+}
+
+.action-grid button:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 18px 34px rgba(37, 99, 235, 0.28),
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+  filter: saturate(1.05);
+}
+
+.action-grid button:hover::after {
+  transform: translateX(120%);
+}
+
+.action-grid button:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* Give each lifecycle button a distinct premium tone */
+.action-grid button:nth-child(1) {
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+}
+
+.action-grid button:nth-child(2) {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+}
+
+.action-grid button:nth-child(3) {
+  background: linear-gradient(135deg, #0891b2, #06b6d4);
+}
+
+.action-grid button:nth-child(4) {
+  background: linear-gradient(135deg, #2563eb, #0ea5e9);
+}
+
+.action-grid button:nth-child(5) {
+  background: linear-gradient(135deg, #475569, #6366f1);
+}
+
+.action-grid button:nth-child(6) {
+  background: linear-gradient(135deg, #059669, #10b981);
+}
+
+/* Inputs: cleaner premium look */
+.create-escrow-card input,
+.history-search,
+.history-sort,
+select {
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.create-escrow-card input:focus,
+.history-search:focus,
+.history-sort:focus,
+select:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.55);
+  box-shadow:
+    0 0 0 4px rgba(59, 130, 246, 0.12),
+    0 10px 24px rgba(59, 130, 246, 0.08);
+}
+
+/* Wallet pill glow */
+.wallet-pill {
+  background: linear-gradient(135deg, #0f172a, #1d4ed8 45%, #7c3aed);
+  box-shadow:
+    0 16px 30px rgba(79, 70, 229, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+}
+/* Top navbar premium glass */
+.top-navbar {
+  background: rgba(248, 251, 255, 0.58);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* Mobile tweaks */
+@media (max-width: 768px) {
+  .action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-grid button {
+    min-height: 50px;
+    border-radius: 15px;
+  }
+
+  .card,
+  .create-escrow-card,
+  .wallet-card,
+  .activity-card,
+  .history-card,
+  .help-section {
+    border-radius: 22px;
   }
 }

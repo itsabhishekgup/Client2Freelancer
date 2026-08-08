@@ -1,5 +1,6 @@
 
 import { useEffect, useMemo, useState } from "react";
+import { useWalletBridge } from "../hooks/useWalletBridge";
 import { BrowserProvider, Contract, formatUnits } from "ethers";
 import escrowArtifact from "../contracts/ArcBridgeEscrow.json";
 import { CONTRACT_ADDRESS } from "../contracts/config";
@@ -140,6 +141,12 @@ function Dashboard(props) {
   const [summaryError, setSummaryError] = useState("");
   const [feedLoading, setFeedLoading] = useState(false);
 
+  const { address: connectedAddress, walletProvider } = useWalletBridge();
+  const providerSource = useMemo(
+    () => walletProvider ?? (typeof window !== "undefined" ? window.ethereum : null),
+    [walletProvider],
+  );
+
   const resolvedStep = Number.isFinite(currentStep) ? currentStep : internalStep;
   const resolvedEscrowId = useMemo(() => {
     const candidate =
@@ -191,7 +198,7 @@ function Dashboard(props) {
     let cancelled = false;
 
     const refreshChainSnapshot = async () => {
-      if (!window.ethereum) {
+      if (!providerSource) {
         setWallet({
           connected: false,
           address: "--",
@@ -207,7 +214,7 @@ function Dashboard(props) {
         setFeedLoading(true);
         setWallet((prev) => ({ ...prev, loading: true }));
 
-        const provider = new BrowserProvider(window.ethereum);
+        const provider = new BrowserProvider(providerSource);
         const contract = new Contract(CONTRACT_ADDRESS, escrowArtifact.abi, provider);
         const usdc = new Contract(USDC_ADDRESS, USDC_ABI, provider);
 
@@ -219,7 +226,7 @@ function Dashboard(props) {
 
         if (cancelled) return;
 
-        const address = accounts?.[0] ?? null;
+        const address = accounts?.[0] ?? connectedAddress ?? null;
         let balanceText = "--";
         if (address) {
           const balance = await usdc.balanceOf(address);
@@ -368,31 +375,31 @@ function Dashboard(props) {
 
     refreshChainSnapshot();
 
-    if (window.ethereum) {
-      window.ethereum.on("accountsChanged", handleAccountsChanged);
-      window.ethereum.on("chainChanged", handleChainChanged);
+    if (providerSource && typeof providerSource.on === "function") {
+      providerSource.on("accountsChanged", handleAccountsChanged);
+      providerSource.on("chainChanged", handleChainChanged);
 
-      const provider = new BrowserProvider(window.ethereum);
+      const provider = new BrowserProvider(providerSource);
       provider.on("block", handleBlock);
 
       return () => {
         cancelled = true;
         provider.off("block", handleBlock);
-        window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
-        window.ethereum.removeListener("chainChanged", handleChainChanged);
+        providerSource.removeListener?.("accountsChanged", handleAccountsChanged);
+        providerSource.removeListener?.("chainChanged", handleChainChanged);
       };
     }
 
     return () => {
       cancelled = true;
     };
-  }, [refreshTick]);
+  }, [refreshTick, providerSource, connectedAddress]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadSummary = async () => {
-      if (!selectedSummaryId || !window.ethereum) {
+      if (!selectedSummaryId || !providerSource) {
         setSummaryEscrow(null);
         setSummaryError(selectedSummaryId ? "Wallet not available" : "");
         return;
@@ -402,7 +409,7 @@ function Dashboard(props) {
         setSummaryLoading(true);
         setSummaryError("");
 
-        const provider = new BrowserProvider(window.ethereum);
+        const provider = new BrowserProvider(providerSource);
         const contract = new Contract(CONTRACT_ADDRESS, escrowArtifact.abi, provider);
         const data = await contract.escrows(Number(selectedSummaryId));
 
@@ -433,7 +440,7 @@ function Dashboard(props) {
     return () => {
       cancelled = true;
     };
-  }, [selectedSummaryId]);
+  }, [selectedSummaryId, providerSource]);
 
   const displayedSummary = summaryEscrow ?? recentEscrows[0] ?? null;
   const displayedStep = Math.min(Math.max(liveStep, 0), STEPS.length);
