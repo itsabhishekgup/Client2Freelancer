@@ -1,6 +1,8 @@
 import { BrowserProvider, Contract, formatUnits, parseUnits } from "ethers";
+import { CONTRACT_ADDRESS } from "./config";
 import { USDC_ADDRESS } from "./constants";
 import { USDC_ABI } from "./USDCABI";
+import { toast } from "../lib/toast";
 
 export function resolveWalletProvider(providerSource) {
   return providerSource ?? (typeof window !== "undefined" ? window.ethereum : null);
@@ -48,7 +50,7 @@ export async function connectWallet(providerSource) {
   const provider = getBrowserProvider(providerSource);
 
   if (!provider) {
-    alert("Please install an EVM-compatible wallet");
+    toast("Please install an EVM-compatible wallet", "warning");
     return null;
   }
 
@@ -77,8 +79,7 @@ export async function approveUSDC(amount, providerSource) {
   const provider = getBrowserProvider(providerSource);
 
   if (!provider) {
-    alert("Please connect a wallet first");
-    return false;
+    return { ok: false, hash: null, message: "Please connect a wallet first" };
   }
 
   try {
@@ -86,16 +87,20 @@ export async function approveUSDC(amount, providerSource) {
     const usdc = new Contract(USDC_ADDRESS, USDC_ABI, signer);
 
     const tx = await usdc.approve(
-      "0x3Dd9f286dd70e6FD9d4EeFe642F8d7E71CD93291",
+      CONTRACT_ADDRESS,
       parseUnits(amount.toString(), 6),
     );
+    const txHash = tx.hash;
 
     await tx.wait();
 
-    return true;
+    return { ok: true, hash: txHash, message: null };
   } catch (err) {
     console.error("APPROVE ERROR:", err);
-    alert(err.message || JSON.stringify(err));
-    return false;
+    return {
+      ok: false,
+      hash: null,
+      message: err?.shortMessage || err?.reason || err?.message || JSON.stringify(err),
+    };
   }
 }

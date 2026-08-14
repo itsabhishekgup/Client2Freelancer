@@ -12,8 +12,7 @@ contract DeployArcBridgeEscrow is Script {
     function run() public {
         vm.startBroadcast();
 
-        escrow = new ArcBridgeEscrow( 0x3600000000000000000000000000000000000000 );
-
+        escrow = new ArcBridgeEscrow(0x3600000000000000000000000000000000000000);
 
         vm.stopBroadcast();
     }

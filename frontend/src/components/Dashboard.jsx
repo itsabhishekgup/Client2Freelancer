@@ -1,117 +1,36 @@
-
 import { useEffect, useMemo, useState } from "react";
 import { useWalletBridge } from "../hooks/useWalletBridge";
-import { BrowserProvider, Contract, formatUnits } from "ethers";
+import { BrowserProvider, Contract, JsonRpcProvider, formatUnits } from "ethers";
 import escrowArtifact from "../contracts/ArcBridgeEscrow.json";
+import { arcTestnet } from "../contracts/arcChain";
 import { CONTRACT_ADDRESS } from "../contracts/config";
 import { USDC_ABI } from "../contracts/USDCABI";
 import { USDC_ADDRESS } from "../contracts/constants";
+import {
+  ACTIVITY_META,
+  STEPS,
+  formatAmount,
+  formatRelativeTime,
+  getEscrowStatusMeta,
+  getWorkflowStep,
+  mapEscrowState,
+  normalizeEscrowId,
+  shortenAddress,
+} from "../lib/escrowFormat";
+import ActivityFeed from "./ActivityFeed";
 import CreateEscrow from "./CreateEscrow";
+import EscrowsList from "./EscrowsList";
+import EscrowSummaryPanel from "./EscrowSummaryPanel";
+import WalletPanel from "./WalletPanel";
 
-const STEPS = [
-  "Create Escrow",
-  "Approve USDC",
-  "Deposit Funds",
-  "Submit Work",
-  "Approve Work",
-  "Release Funds",
-];
+// Read-only chain data (activity feed, recent escrows, escrow summary) loads
+// via a public RPC even when no wallet is connected.
+const PUBLIC_RPC_URL = arcTestnet.rpcUrls.default.http[0];
 
-const ACTIVITY_META = {
-  EscrowCreated: { label: "Escrow Created", tone: "completed", icon: "✨" },
-  FundsDeposited: { label: "Funds Deposited", tone: "funded", icon: "💰" },
-  WorkSubmitted: { label: "Work Submitted", tone: "submitted", icon: "📝" },
-  WorkApproved: { label: "Work Approved", tone: "approved", icon: "✅" },
-  FundsReleased: { label: "Funds Released", tone: "completed", icon: "🚀" },
-};
-
-function shortenAddress(address) {
-  if (!address || typeof address !== "string") return "--";
-  if (!address.startsWith("0x") || address.length < 10) return address;
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-function normalizeEscrowId(value) {
-  if (value === null || value === undefined || value === "") return null;
-
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-
-  const raw = String(value).trim();
-  if (/^\d+$/.test(raw)) {
-    return Number(raw);
-  }
-
-  const digits = raw.match(/\d+/g)?.join("");
-  if (digits) {
-    return Number(digits);
-  }
-
-  return null;
-}
-
-function formatRelativeTime(timestampSeconds) {
-  if (!timestampSeconds) return "just now";
-
-  const diffSeconds = Math.max(0, Math.floor(Date.now() / 1000) - Number(timestampSeconds));
-  if (diffSeconds < 60) return `${diffSeconds}s ago`;
-
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
-}
-
-function formatAmount(amount) {
-  try {
-    return `${Number(formatUnits(amount ?? 0n, 6)).toFixed(2)} USDC`;
-  } catch {
-    return "--";
-  }
-}
-
-function getEscrowStatusMeta(escrow) {
-  if (!escrow) return { label: "Waiting", className: "waiting" };
-  if (escrow.released) return { label: "Completed", className: "completed" };
-  if (escrow.approved) return { label: "Approved", className: "approved" };
-  if (escrow.workSubmitted) return { label: "Work Submitted", className: "submitted" };
-  if (escrow.funded) return { label: "Funded", className: "funded" };
-  return { label: "Waiting", className: "waiting" };
-}
-
-function getWorkflowStep(escrow) {
-  if (!escrow) return 0;
-  if (escrow.released) return 6;
-  if (escrow.approved) return 5;
-  if (escrow.workSubmitted) return 4;
-  if (escrow.funded) return 3;
-  return 1;
-}
-
-function mapEscrowState(data, id) {
-  const client = data?.client ?? data?.[0];
-  const freelancer = data?.freelancer ?? data?.[1];
-  const amount = data?.amount ?? data?.[2];
-  const funded = data?.funded ?? data?.[3];
-  const workSubmitted = data?.workSubmitted ?? data?.[4];
-  const approved = data?.approved ?? data?.[5];
-  const released = data?.released ?? data?.[6];
-
-  return {
-    id: String(id),
-    client,
-    freelancer,
-    amount,
-    funded: Boolean(funded),
-    workSubmitted: Boolean(workSubmitted),
-    approved: Boolean(approved),
-    released: Boolean(released),
-  };
+function resolveReadProvider(providerSource) {
+  return providerSource
+    ? new BrowserProvider(providerSource)
+    : new JsonRpcProvider(PUBLIC_RPC_URL);
 }
 
 function Dashboard(props) {
@@ -198,6 +117,8 @@ function Dashboard(props) {
     let cancelled = false;
 
     const refreshChainSnapshot = async () => {
+      const provider = resolveReadProvider(providerSource);
+
       if (!providerSource) {
         setWallet({
           connected: false,
@@ -206,20 +127,22 @@ function Dashboard(props) {
           network: "Arc Testnet",
           loading: false,
         });
-        setFeedLoading(false);
-        return;
       }
 
       try {
         setFeedLoading(true);
-        setWallet((prev) => ({ ...prev, loading: true }));
+        if (providerSource) {
+          setWallet((prev) => ({ ...prev, loading: true }));
+        }
 
-        const provider = new BrowserProvider(providerSource);
         const contract = new Contract(CONTRACT_ADDRESS, escrowArtifact.abi, provider);
         const usdc = new Contract(USDC_ADDRESS, USDC_ABI, provider);
 
-        const [accounts, network, latestBlock] = await Promise.all([
-          provider.send("eth_accounts", []),
+        let accounts = [];
+        if (providerSource) {
+          accounts = await provider.send("eth_accounts", []);
+        }
+        const [network, latestBlock] = await Promise.all([
           provider.getNetwork(),
           provider.getBlockNumber(),
         ]);
@@ -244,24 +167,64 @@ function Dashboard(props) {
 
         const fromBlock = Math.max(0, latestBlock - 5000);
 
-        const [createdEvents, depositedEvents, submittedEvents, approvedEvents, releasedEvents] =
-          await Promise.all([
-            contract.queryFilter(contract.filters.EscrowCreated(), fromBlock, latestBlock),
-            contract.queryFilter(contract.filters.FundsDeposited(), fromBlock, latestBlock),
-            contract.queryFilter(contract.filters.WorkSubmitted(), fromBlock, latestBlock),
-            contract.queryFilter(contract.filters.WorkApproved(), fromBlock, latestBlock),
-            contract.queryFilter(contract.filters.FundsReleased(), fromBlock, latestBlock),
-          ]);
-
-        if (cancelled) return;
-
-        const allEvents = [
-          ...createdEvents.map((event) => ({ ...event, type: "EscrowCreated" })),
-          ...depositedEvents.map((event) => ({ ...event, type: "FundsDeposited" })),
-          ...submittedEvents.map((event) => ({ ...event, type: "WorkSubmitted" })),
-          ...approvedEvents.map((event) => ({ ...event, type: "WorkApproved" })),
-          ...releasedEvents.map((event) => ({ ...event, type: "FundsReleased" })),
+        // Single eth_getLogs call with OR'd event topics instead of 8 parallel
+        // queries — the public testnet RPC rate-limits bursts of get_logs.
+        const eventNames = [
+          "EscrowCreated",
+          "FundsDeposited",
+          "WorkSubmitted",
+          "WorkApproved",
+          "FundsReleased",
+          "EscrowCancelled",
+          "DisputeRaised",
+          "DisputeResolved",
         ];
+        let allEvents = [];
+        // Feed is best-effort: the fast testnet RPC rate-limits getLogs, and a
+        // feed failure should not block the escrow list (which loads from the
+        // backend /escrows endpoint or a direct escrowCount read).
+        try {
+          const eventTopics = eventNames.map((name) =>
+            contract.interface.getEvent(name).topicHash,
+          );
+          const rawLogs = await provider.getLogs({
+            address: CONTRACT_ADDRESS,
+            fromBlock,
+            toBlock: latestBlock,
+            topics: [eventTopics],
+          });
+
+          if (cancelled) return;
+
+          const parsedLogs = rawLogs
+            .map((log) => {
+              try {
+                return { ...log, parsed: contract.interface.parseLog(log) };
+              } catch {
+                return null;
+              }
+            })
+            .filter(Boolean);
+
+          allEvents = parsedLogs.map((entry) => ({
+            ...entry,
+            type: entry.parsed.name,
+            args: entry.parsed.args,
+          }));
+        } catch (err) {
+          console.warn("feed getLogs failed (escrows will still update):", err);
+        }
+
+        // ethers v6 Result throws RangeError on out-of-range array access,
+        // so use a safe positional getter for event args.
+        const getArg = (args, index) => {
+          if (!args) return undefined;
+          try {
+            return args[index];
+          } catch {
+            return undefined;
+          }
+        };
 
         const blockCache = new Map();
         const formatBlockTime = async (blockNumber) => {
@@ -287,10 +250,10 @@ function Dashboard(props) {
               };
 
               const timestamp = await formatBlockTime(event.blockNumber);
-              const escrowIdFromEvent = event.args?.escrowId ?? event.args?.[0];
-              const amountFromEvent = event.args?.amount ?? event.args?.[1];
-              const clientFromEvent = event.args?.client ?? event.args?.[1];
-              const freelancerFromEvent = event.args?.freelancer ?? event.args?.[2];
+              const escrowIdFromEvent = event.args?.escrowId ?? getArg(event.args, 0);
+              const amountFromEvent = event.args?.amount ?? getArg(event.args, 1);
+              const clientFromEvent = event.args?.client ?? getArg(event.args, 1);
+              const freelancerFromEvent = event.args?.freelancer ?? getArg(event.args, 2);
 
               let detail = `Block #${event.blockNumber}`;
               if (event.type === "EscrowCreated") {
@@ -301,6 +264,14 @@ function Dashboard(props) {
                 detail = `${formatAmount(amountFromEvent)} locked in escrow`;
               } else if (event.type === "FundsReleased") {
                 detail = `${formatAmount(amountFromEvent)} sent to freelancer`;
+              } else if (event.type === "EscrowCancelled") {
+                detail = `${formatAmount(amountFromEvent)} refunded to client`;
+              } else if (event.type === "DisputeRaised") {
+                detail = `Dispute opened — awaiting arbitration`;
+              } else if (event.type === "DisputeResolved") {
+                detail = `Resolved in favor of ${event.args?.favorFreelancer ? "freelancer" : "client"} · ${formatAmount(
+                  amountFromEvent,
+                )}`;
               } else {
                 detail = `Escrow #${escrowIdFromEvent?.toString?.() ?? escrowIdFromEvent}`;
               }
@@ -322,30 +293,84 @@ function Dashboard(props) {
         if (cancelled) return;
         setActivityItems(feed);
 
-        const createdIds = Array.from(
-          new Set(
-            createdEvents
-              .map((event) => event.args?.escrowId ?? event.args?.[0])
-              .filter((value) => value !== undefined && value !== null)
-              .map((value) => value.toString()),
-          ),
-        )
-          .sort((a, b) => Number(b) - Number(a))
-          .slice(0, 4);
+        // List ALL escrows — prefer the backend /escrows endpoint (escrowCount-
+        // based, cached server-side). If the backend is down or the response is
+        // incomplete, fall back to reading escrowCount directly and fetching
+        // each escrow 4 at a time to stay under the RPC burst limit.
+        let escrows = [];
+        let escrowsLoaded = false;
 
-        const escrows = await Promise.all(
-          createdIds.map(async (id) => {
-            const data = await contract.escrows(Number(id));
-            const mapped = mapEscrowState(data, id);
-            return {
-              ...mapped,
-              amountText: formatAmount(mapped.amount),
-              clientText: shortenAddress(mapped.client),
-              freelancerText: shortenAddress(mapped.freelancer),
-              status: getEscrowStatusMeta(mapped),
-            };
-          }),
-        );
+        try {
+          const api = await import("../lib/liveApi");
+          const list = await api.fetchEscrows({ limit: 500, signal: null });
+          if (list && Array.isArray(list.escrows) && list.escrows.length > 0) {
+            escrows = list.escrows.map((item) => {
+              const mapped = {
+                id: String(item.id),
+                client: item.client,
+                freelancer: item.freelancer,
+                amount: item.amount_wei ?? "0",
+                funded: Boolean(item.funded),
+                workSubmitted: Boolean(item.workSubmitted),
+                approved: Boolean(item.approved),
+                released: Boolean(item.released),
+                refunded: Boolean(item.refunded),
+                disputed: Boolean(item.disputed),
+                createdAt: item.createdAt,
+                expiresAt: item.expiresAt,
+              };
+              return {
+                ...mapped,
+                amountText: item.amount ?? formatAmount(mapped.amount),
+                clientText: item.client_short ?? shortenAddress(item.client),
+                freelancerText: item.freelancer_short ?? shortenAddress(item.freelancer),
+                status: getEscrowStatusMeta(mapped),
+              };
+            });
+            escrowsLoaded = true;
+            if (list.complete === false) {
+              console.warn("backend /escrows returned a partial list; using it anyway");
+            }
+          }
+        } catch (err) {
+          console.warn("backend /escrows unavailable, falling back to direct RPC:", err);
+        }
+
+        if (!escrowsLoaded) {
+          let escrowCount = 0;
+          try {
+            escrowCount = Number(await contract.escrowCount());
+          } catch (err) {
+            console.error("escrowCount read error:", err);
+          }
+
+          const ids = Array.from({ length: escrowCount }, (_, i) => escrowCount - i);
+          escrows = [];
+
+          for (let i = 0; i < ids.length; i += 4) {
+            if (cancelled) return;
+            const chunk = ids.slice(i, i + 4);
+            const chunkResults = await Promise.all(
+              chunk.map(async (id) => {
+                try {
+                  const data = await contract.escrows(id);
+                  const mapped = mapEscrowState(data, id);
+                  return {
+                    ...mapped,
+                    amountText: formatAmount(mapped.amount),
+                    clientText: shortenAddress(mapped.client),
+                    freelancerText: shortenAddress(mapped.freelancer),
+                    status: getEscrowStatusMeta(mapped),
+                  };
+                } catch (err) {
+                  console.error(`escrow ${id} read error:`, err);
+                  return null;
+                }
+              }),
+            );
+            escrows.push(...chunkResults.filter(Boolean));
+          }
+        }
 
         if (cancelled) return;
         setRecentEscrows(escrows);
@@ -399,9 +424,9 @@ function Dashboard(props) {
     let cancelled = false;
 
     const loadSummary = async () => {
-      if (!selectedSummaryId || !providerSource) {
+      if (!selectedSummaryId) {
         setSummaryEscrow(null);
-        setSummaryError(selectedSummaryId ? "Wallet not available" : "");
+        setSummaryError("");
         return;
       }
 
@@ -409,7 +434,7 @@ function Dashboard(props) {
         setSummaryLoading(true);
         setSummaryError("");
 
-        const provider = new BrowserProvider(providerSource);
+        const provider = resolveReadProvider(providerSource);
         const contract = new Contract(CONTRACT_ADDRESS, escrowArtifact.abi, provider);
         const data = await contract.escrows(Number(selectedSummaryId));
 
@@ -502,184 +527,9 @@ function Dashboard(props) {
             />
           </section>
 
-          <section className="card activity-card">
-            <div className="summary-header">
-              <div>
-                <h3>Recent Activity</h3>
-                <p>Live blockchain events from the escrow contract</p>
-              </div>
-              <span className="status-badge live">Live</span>
-            </div>
+          <ActivityFeed activityItems={activityItems} feedLoading={feedLoading} />
 
-            {feedLoading && activityItems.length === 0 ? (
-              <p className="section-copy">Loading live activity feed...</p>
-            ) : activityItems.length ? (
-              <div style={{ display: "grid", gap: "12px", marginTop: "6px" }}>
-                {activityItems.map((item) => (
-                  <article
-                    key={item.key}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "auto 1fr auto",
-                      gap: "14px",
-                      alignItems: "center",
-                      padding: "14px 16px",
-                      borderRadius: "18px",
-                      background: "rgba(255,255,255,0.74)",
-                      border: "1px solid rgba(148,163,184,0.14)",
-                      boxShadow: "0 10px 24px rgba(15,23,42,0.04)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "42px",
-                        height: "42px",
-                        borderRadius: "14px",
-                        display: "grid",
-                        placeItems: "center",
-                        background:
-                          item.tone === "completed"
-                            ? "rgba(34,197,94,0.14)"
-                            : item.tone === "funded"
-                              ? "rgba(59,130,246,0.14)"
-                              : item.tone === "submitted"
-                                ? "rgba(249,115,22,0.14)"
-                                : item.tone === "approved"
-                                  ? "rgba(139,92,246,0.14)"
-                                  : "rgba(37,99,235,0.14)",
-                        color:
-                          item.tone === "completed"
-                            ? "#16a34a"
-                            : item.tone === "funded"
-                              ? "#2563eb"
-                              : item.tone === "submitted"
-                                ? "#ea580c"
-                                : item.tone === "approved"
-                                  ? "#7c3aed"
-                                  : "#1d4ed8",
-                        fontSize: "18px",
-                        fontWeight: 800,
-                      }}
-                    >
-                      {item.icon}
-                    </div>
-
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "10px",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <strong style={{ color: "#0f172a", fontSize: "14px" }}>
-                          {item.label}
-                        </strong>
-                        <span
-                          className={`status-badge ${item.tone}`}
-                          style={{ padding: "6px 10px" }}
-                        >
-                          Escrow #{item.escrowId}
-                        </span>
-                      </div>
-                      <p
-                        style={{
-                          margin: "4px 0 0",
-                          color: "#64748b",
-                          fontSize: "13px",
-                          lineHeight: 1.6,
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        {item.detail}
-                      </p>
-                    </div>
-
-                    <div style={{ textAlign: "right", minWidth: "120px" }}>
-                      <div style={{ color: "#0f172a", fontSize: "12px", fontWeight: 700 }}>
-                        {item.timeAgo}
-                      </div>
-                      <div style={{ color: "#64748b", fontSize: "11px", marginTop: "4px" }}>
-                        {shortenAddress(item.txHash)}
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="activity-empty">
-                <strong>No recent activity yet</strong>
-                <p>
-                  Create, fund, submit, approve, and release an escrow to populate this
-                  section from blockchain events.
-                </p>
-              </div>
-            )}
-          </section>
-
-          <section id="my-escrows" className="card dashboard-section">
-            <div className="summary-header">
-              <div>
-                <h3>📦 My Escrows</h3>
-                <p>Live escrow records pulled from the contract</p>
-              </div>
-              <span className="status-badge live">Live</span>
-            </div>
-
-            {recentEscrows.length ? (
-              <div style={{ display: "grid", gap: "12px", marginTop: "6px" }}>
-                {recentEscrows.map((escrow) => (
-                  <article
-                    key={escrow.id}
-                    style={{
-                      padding: "16px",
-                      borderRadius: "18px",
-                      background: "rgba(255,255,255,0.74)",
-                      border: "1px solid rgba(148,163,184,0.14)",
-                      boxShadow: "0 10px 24px rgba(15,23,42,0.04)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        justifyContent: "space-between",
-                        gap: "12px",
-                        marginBottom: "12px",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <div>
-                        <strong style={{ color: "#0f172a", fontSize: "15px" }}>
-                          Escrow #{escrow.id}
-                        </strong>
-                        <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: "13px" }}>
-                          {escrow.amountText}
-                        </p>
-                      </div>
-                      <span className={`status-badge ${escrow.status.className}`}>
-                        {escrow.status.label}
-                      </span>
-                    </div>
-
-                    <div className="summary-item">
-                      <span>Client</span>
-                      <strong>{escrow.clientText}</strong>
-                    </div>
-                    <div className="summary-item">
-                      <span>Freelancer</span>
-                      <strong>{escrow.freelancerText}</strong>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p className="section-copy">
-                No escrows found yet. Create one to see live records here.
-              </p>
-            )}
-          </section>
+          <EscrowsList escrows={recentEscrows} />
 
           <section id="transactions" className="card dashboard-section">
             <div className="summary-header">
@@ -787,41 +637,7 @@ function Dashboard(props) {
         </section>
 
         <aside className="dashboard-side">
-          <section className="card wallet-card">
-            <div className="wallet-header">
-              <div>
-                <h3>💼 Wallet Overview</h3>
-                <p>Your connected wallet status</p>
-              </div>
-
-              <span className={`wallet-badge ${wallet.connected ? "connected" : "disconnected"}`}>
-                <span className="status-dot" />
-                {wallet.connected ? "Connected" : "Disconnected"}
-              </span>
-            </div>
-
-            <div className="wallet-info">
-              <div className="wallet-item">
-                <span>Network</span>
-                <strong>{wallet.network}</strong>
-              </div>
-
-              <div className="wallet-item">
-                <span>USDC Balance</span>
-                <strong>{wallet.loading ? "Loading..." : wallet.balance}</strong>
-              </div>
-
-              <div className="wallet-item">
-                <span>Wallet Status</span>
-                <strong>{wallet.connected ? "Active" : "Inactive"}</strong>
-              </div>
-
-              <div className="wallet-item">
-                <span>Address</span>
-                <strong>{wallet.address}</strong>
-              </div>
-            </div>
-          </section>
+          <WalletPanel wallet={wallet} />
 
           <section className="card quick-help-card">
             <div className="summary-header">
@@ -844,55 +660,11 @@ function Dashboard(props) {
             </button>
           </section>
 
-          <section className="card escrow-summary">
-            <div className="summary-header">
-              <div>
-                <h3>📋 Escrow Summary</h3>
-                <p>Current live escrow from blockchain</p>
-              </div>
-
-              <span className={`status-badge ${displayedSummary?.status?.className || "waiting"}`}>
-                {displayedSummary?.status?.label || "Waiting"}
-              </span>
-            </div>
-
-            <p className="summary-subtitle">
-              {summaryLoading
-                ? "Loading live escrow details..."
-                : summaryError
-                  ? summaryError
-                  : displayedSummary
-                    ? "Current escrow details are loaded directly from the contract."
-                    : "Select or create an escrow to see live details here."}
-            </p>
-
-            <div className="summary-item">
-              <span>Escrow ID</span>
-              <strong>{displayedSummary?.id ?? "--"}</strong>
-            </div>
-
-            <div className="summary-item">
-              <span>Client</span>
-              <strong>{displayedSummary?.clientText ?? "--"}</strong>
-            </div>
-
-            <div className="summary-item">
-              <span>Freelancer</span>
-              <strong>{displayedSummary?.freelancerText ?? "--"}</strong>
-            </div>
-
-            <div className="summary-item">
-              <span>Amount</span>
-              <strong>{displayedSummary?.amountText ?? "--"}</strong>
-            </div>
-
-            <div className="summary-item">
-              <span>Status</span>
-              <strong className={`status-pill ${displayedSummary?.status?.className || "waiting"}`}>
-                {displayedSummary?.status?.label || "Waiting"}
-              </strong>
-            </div>
-          </section>
+          <EscrowSummaryPanel
+            escrow={displayedSummary}
+            loading={summaryLoading}
+            error={summaryError}
+          />
         </aside>
       </div>
     </main>

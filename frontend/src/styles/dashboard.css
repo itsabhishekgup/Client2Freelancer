@@ -554,6 +554,16 @@
   color: #7c3aed;
 }
 
+.status-badge.disputed {
+  background: rgba(239, 68, 68, 0.16);
+  color: #dc2626;
+}
+
+.status-badge.refunded {
+  background: rgba(250, 204, 21, 0.16);
+  color: #ca8a04;
+}
+
 .status-badge.live {
   background: rgba(59, 130, 246, 0.14);
   color: #1d4ed8;
@@ -1293,29 +1303,137 @@
   transform: translateY(0) scale(0.99);
 }
 
-/* Give each lifecycle button a distinct premium tone */
-.action-grid button:nth-child(1) {
+/* Give each lifecycle button a distinct premium tone (class-based so role-filtered
+   rendering keeps stable colors) */
+.action-grid .premium-action-btn--load-more {
+  background: linear-gradient(135deg, #1e3a8a, #2563eb);
+}
+
+.action-grid .premium-action-btn--create {
   background: linear-gradient(135deg, #2563eb, #4f46e5);
 }
 
-.action-grid button:nth-child(2) {
+.action-grid .premium-action-btn--approve {
   background: linear-gradient(135deg, #4f46e5, #7c3aed);
 }
 
-.action-grid button:nth-child(3) {
+.action-grid .premium-action-btn--deposit {
   background: linear-gradient(135deg, #0891b2, #06b6d4);
 }
 
-.action-grid button:nth-child(4) {
+.action-grid .premium-action-btn--submit {
   background: linear-gradient(135deg, #2563eb, #0ea5e9);
 }
 
-.action-grid button:nth-child(5) {
+.action-grid .premium-action-btn--approve-work {
   background: linear-gradient(135deg, #475569, #6366f1);
 }
 
-.action-grid button:nth-child(6) {
+.action-grid .premium-action-btn--release {
   background: linear-gradient(135deg, #059669, #10b981);
+}
+
+.action-grid .premium-action-btn--cancel {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+}
+
+.action-grid .premium-action-btn--claim {
+  background: linear-gradient(135deg, #0d9488, #2dd4bf);
+}
+
+.action-grid .premium-action-btn--dispute {
+  background: linear-gradient(135deg, #dc2626, #f97316);
+}
+
+.action-grid .premium-action-btn--resolve-freelancer {
+  background: linear-gradient(135deg, #059669, #34d399);
+}
+
+.action-grid .premium-action-btn--resolve-client {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+}
+
+/* Disabled role/state buttons: muted, non-interactive */
+.action-grid button:disabled {
+  filter: grayscale(0.9) brightness(0.55);
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.action-grid button:disabled::after {
+  display: none;
+}
+
+/* Pending tx: keep gradient, add pulse + spinner label */
+.action-grid button.premium-action-btn--pending:disabled {
+  filter: none;
+  opacity: 1;
+  cursor: wait;
+  animation: btn-pulse 1.4s ease-in-out infinite;
+}
+
+.action-grid button.premium-action-btn--pending {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: btn-spin 0.7s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes btn-pulse {
+  0%,
+  100% {
+    box-shadow: 0 10px 22px rgba(37, 99, 235, 0.25);
+  }
+  50% {
+    box-shadow: 0 10px 30px rgba(37, 99, 235, 0.45);
+  }
+}
+
+/* Role indicator + escrow state hint */
+.escrow-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.escrow-role-badge--active {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(124, 58, 237, 0.12));
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #4338ca;
+}
+
+.escrow-hint {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: #64748b;
+  text-align: center;
 }
 
 /* Inputs: cleaner premium look */
