@@ -1,15 +1,163 @@
-# ArcBridge Escrow
+# 🔗 ArcBridge — Programmable USDC Escrow on Arc
 
-A programmable cross-chain USDC escrow protocol built on Arc.
+> Trustless escrow payments with **on-chain custody, expiry timelocks, and dispute arbitration** — built on the Arc network.
 
-## Status
+ArcBridge is a full-stack escrow protocol that lets clients and freelancers transact without trusting each other. Funds are locked in a smart contract, work is submitted on-chain, and disputes are resolved by a neutral arbitrator — every step verifiable on-chain.
 
-🚧 Work in Progress
+**Live contract:** [`0x788bd809f93b8915f0dcd1ab3b3560355c8d0ff3`](https://testnet.arcscan.app/address/0x788bd809f93b8915f0dcd1ab3b3560355c8d0ff3) on Arc Testnet (chain id `5042002`) — **✅ source verified on ArcScan** (Solidity `v0.8.35`, ABI published)
 
-## Stack
+---
 
-- Solidity
-- Foundry
-- React
-- ethers.js
-- Arc Testnet
+## ✨ Features
+
+### Smart Contract (`ArcBridgeEscrow.sol`)
+- **Escrow lifecycle** — create → deposit USDC → submit work → approve → release funds
+- **Cancel & refund** — client refunds escrowed funds with a single transaction
+- **Expiry timelock** — every escrow has an `expiresAt` (default 7 days, configurable per-escrow via `createEscrowWithDeadline`)
+- **`claimAfterExpiry`** — freelancer protection: if the client never approves, funds can be claimed once expired
+- **Dispute & arbitration** — either party raises a dispute; the arbitrator (`setArbitrator`, owner-set) resolves it in favor of client or freelancer
+- **`rescueTokens`** — owner recovers tokens accidentally sent to the contract; for USDC only the amount above locked escrow balances is touchable, so client funds are never at risk
+- **Escrow cap** — `maxEscrowsPerClient` (default 50, owner-configurable) blocks spam: a wallet can never create more than the cap
+- **Reentrancy-guarded**, custom `safeTransfer` error handling, `Ownable` admin
+
+### Backend (FastAPI)
+- **`GET /health`** — RPC + poller health
+- **`GET /live`** — wallet summary, chain state, recent activity events
+- **`GET /escrow/{id}`** — single escrow detail
+- **`GET /escrows`** — paginated list (`limit`/`offset`) with **status filter** + **search** by id/client/freelancer
+- Background **poller** keeps a cached view of chain state (no cold-start latency), 15s TTL cache, partial-read safety on RPC rate-limits
+
+### Frontend (React + Vite)
+- 🚀 **Landing page** with 2×2 product showcase
+- 🌑 **Dark futuristic UI** — glassmorphism, purple/blue neon, accent themes
+- 📊 **Analytics dashboard** — wallet overview, escrow summary, activity feed
+- ⚙️ **Settings modal** — accent colors, auto-refresh, compact density, default expiry duration, feed toggle
+- 💸 **Full escrow actions** — create, cancel, dispute, resolve (per-role buttons)
+- 🔔 **Toast system** with tx-hash explorer links + pending-confirmation states
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────┐     ┌──────────────────┐     ┌─────────────────────┐
+│   React     │────▶│    FastAPI       │────▶│  Arc Testnet RPC    │
+│  Frontend   │     │  (poller + cache)│     │  (chain id 5042002) │
+└─────────────┘     └──────────────────┘     └──────────┬──────────┘
+       │  wallet connect (AppKit/wagmi)                 │
+       └────────────▶  ArcBridgeEscrow.sol  ◀───────────┘
+                       (USDC custody + arbitration)
+```
+
+- **Contract** — the single source of truth for escrow state (no off-chain trust)
+- **Backend** — read-optimized API layer: indexes chain state, serves the activity feed, and absorbs RPC rate-limit pain behind a cache
+- **Frontend** — wallet-driven dApp; writes go straight to the contract via wagmi, reads prefer the backend API (with direct RPC fallback)
+
+---
+
+## 🚀 Quickstart
+
+### Prerequisites
+- Node 18+ · Python 3.10+ · [Foundry](https://book.getfoundry.sh/) (`curl -L https://foundry.paradigm.xyz | bash`)
+
+### 1. Contracts
+```bash
+cd contracts
+forge build
+forge test          # 44 tests: lifecycle, cancel, expiry, dispute, auth
+```
+
+### 2. Backend
+```bash
+cd backend
+pip install -r requirements.txt
+# optional: cp .env.example .env  (defaults point at the live testnet contract)
+uvicorn main:app --host 127.0.0.1 --port 8000
+```
+
+### 3. Frontend
+```bash
+cd frontend
+npm install
+cp .env.example .env   # set VITE_REOWN_PROJECT_ID + VITE_BACKEND_URL
+npm run dev            # http://localhost:5173
+```
+
+---
+
+## 🔑 Environment Variables
+
+### Backend (`backend/.env`)
+| Variable | Default | Purpose |
+|---|---|---|
+| `ARC_RPC_URL` | `https://rpc.testnet.arc.network` | Arc testnet RPC |
+| `CONTRACT_ADDRESS` | `0xabba...` (live) | Escrow contract |
+| `USDC_ADDRESS` | `0x3600...` | USDC token |
+| `CHAIN_ID` | `5042002` | Chain id |
+| `POLL_SECONDS` | `8` | Poller interval |
+| `BACKFILL_BLOCKS` | `20000` | Event backfill window |
+| `ESCROWS_CACHE_TTL` | `15` | List cache TTL (s) |
+
+### Frontend (`frontend/.env`)
+| Variable | Purpose |
+|---|---|
+| `VITE_REOWN_PROJECT_ID` | AppKit wallet-connect project id |
+| `VITE_BACKEND_URL` | Backend API base URL |
+| `VITE_RPC_URL` | RPC for direct contract reads |
+| `VITE_CONTRACT_ADDRESS` | Escrow contract address |
+| `VITE_USDC_ADDRESS` | USDC token address |
+
+---
+
+## 🧪 Testing & CI
+
+GitHub Actions runs **all three suites on every push/PR** (see `.github/workflows/ci.yml`):
+
+```bash
+# Smart contracts — 44 tests (lifecycle, cancel, expiry, dispute, auth)
+cd contracts && forge test && forge fmt --check
+
+# Backend — 32 tests (helpers, endpoints, caching, partial-read safety)
+cd backend && pip install -r requirements.txt && python -m pytest tests/ -v
+
+# Frontend lint + build
+cd frontend && npx oxlint src && npm run build
+```
+
+---
+
+## 📜 Deployment
+
+```bash
+cd contracts
+source .env   # PRIVATE_KEY + ARC_RPC_URL
+forge script script/DeployArcBridgeEscrow.s.sol --rpc-url $ARC_RPC_URL \
+  --private-key $PRIVATE_KEY --broadcast
+```
+
+Post-deploy, update `CONTRACT_ADDRESS` in `backend/.env` + `VITE_CONTRACT_ADDRESS` in `frontend/.env`.
+
+---
+
+## 📸 Screenshots
+
+<!-- TODO: add screenshots
+![Landing](docs/screenshots/landing.png)
+![Dashboard](docs/screenshots/dashboard.png)
+![Create Escrow](docs/screenshots/create-escrow.png)
+![Settings](docs/screenshots/settings.png)
+-->
+
+---
+
+## 🛣️ Roadmap
+
+- [x] Contract source verification on ArcScan
+- [x] Backend pytest suite + CI pipeline
+- [ ] Cross-chain escrow via bridge messaging (LayerZero/Wormhole)
+- [ ] Escrow-cap + admin rescue (`sweepTokens`) for mis-sent funds
+- [ ] Fiat on/off-ramp integration
+
+---
+
+Built with **Solidity · Foundry · FastAPI · React · ethers.js · AppKit/wagmi** on the **Arc network**.

@@ -100,6 +100,8 @@ export function mapEscrowState(data, id) {
   const released = data?.released ?? data?.[6];
   const refunded = data?.refunded ?? data?.[7];
   const disputed = data?.disputed ?? data?.[8];
+  const createdAt = data?.createdAt ?? data?.[9];
+  const expiresAt = data?.expiresAt ?? data?.[10];
 
   return {
     id: String(id),
@@ -112,5 +114,7 @@ export function mapEscrowState(data, id) {
     released: Boolean(released),
     refunded: Boolean(refunded),
     disputed: Boolean(disputed),
+    createdAt,
+    expiresAt,
   };
 }

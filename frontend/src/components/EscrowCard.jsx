@@ -1,12 +1,19 @@
-function EscrowCard({ escrow }) {
+function EscrowCard({ escrow, onSelect }) {
+  const handleClick = () => onSelect?.(escrow);
+
   return (
     <article
-      style={{
-        padding: "16px",
-        borderRadius: "18px",
-        background: "rgba(255,255,255,0.74)",
-        border: "1px solid rgba(148,163,184,0.14)",
-        boxShadow: "0 10px 24px rgba(15,23,42,0.04)",
+      className="escrow-row-glass escrow-card-clickable"
+      style={{ padding: "16px", borderRadius: "18px" }}
+      role="button"
+      tabIndex={0}
+      aria-label={`View details for escrow ${escrow.id}`}
+      onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleClick();
+        }
       }}
     >
       <div
@@ -20,8 +27,10 @@ function EscrowCard({ escrow }) {
         }}
       >
         <div>
-          <strong style={{ color: "#0f172a", fontSize: "15px" }}>Escrow #{escrow.id}</strong>
-          <p style={{ margin: "4px 0 0", color: "#64748b", fontSize: "13px" }}>
+          <strong className="escrow-row-title" style={{ fontSize: "15px" }}>
+            Escrow #{escrow.id}
+          </strong>
+          <p className="escrow-row-sub" style={{ margin: "4px 0 0", fontSize: "13px" }}>
             {escrow.amountText}
           </p>
         </div>
@@ -35,6 +44,11 @@ function EscrowCard({ escrow }) {
       <div className="summary-item">
         <span>Freelancer</span>
         <strong>{escrow.freelancerText}</strong>
+      </div>
+
+      <div className="escrow-card-footer">
+        <span className="escrow-card-view">View details</span>
+        <span className="escrow-card-arrow">→</span>
       </div>
     </article>
   );

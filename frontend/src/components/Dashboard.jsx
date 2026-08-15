@@ -19,6 +19,7 @@ import {
 } from "../lib/escrowFormat";
 import ActivityFeed from "./ActivityFeed";
 import CreateEscrow from "./CreateEscrow";
+import EscrowDetailModal from "./EscrowDetailModal";
 import EscrowsList from "./EscrowsList";
 import EscrowSummaryPanel from "./EscrowSummaryPanel";
 import WalletPanel from "./WalletPanel";
@@ -41,6 +42,9 @@ function Dashboard(props) {
     setCurrentStep,
     escrowId,
     setEscrowId,
+    refreshMs,
+    defaultExpiryDays,
+    showActivityFeed,
   } = props ?? {};
 
   const [internalStep, setInternalStep] = useState(0);
@@ -59,6 +63,8 @@ function Dashboard(props) {
   const [refreshTick, setRefreshTick] = useState(0);
   const [summaryError, setSummaryError] = useState("");
   const [feedLoading, setFeedLoading] = useState(false);
+  const [txVisibleCount, setTxVisibleCount] = useState(6);
+  const [selectedEscrow, setSelectedEscrow] = useState(null);
 
   const { address: connectedAddress, walletProvider } = useWalletBridge();
   const providerSource = useMemo(
@@ -165,10 +171,6 @@ function Dashboard(props) {
           loading: false,
         });
 
-        const fromBlock = Math.max(0, latestBlock - 5000);
-
-        // Single eth_getLogs call with OR'd event topics instead of 8 parallel
-        // queries — the public testnet RPC rate-limits bursts of get_logs.
         const eventNames = [
           "EscrowCreated",
           "FundsDeposited",
@@ -179,119 +181,161 @@ function Dashboard(props) {
           "DisputeRaised",
           "DisputeResolved",
         ];
-        let allEvents = [];
-        // Feed is best-effort: the fast testnet RPC rate-limits getLogs, and a
-        // feed failure should not block the escrow list (which loads from the
-        // backend /escrows endpoint or a direct escrowCount read).
+
+        // Feed source: prefer the backend /live cache (one HTTP call, no RPC
+        // getLogs hammering — the fast testnet RPC rate-limits bursts). Fall
+        // back to chunked direct getLogs only when the backend is unreachable.
+        let feed = null;
+
         try {
-          const eventTopics = eventNames.map((name) =>
-            contract.interface.getEvent(name).topicHash,
-          );
-          const rawLogs = await provider.getLogs({
-            address: CONTRACT_ADDRESS,
-            fromBlock,
-            toBlock: latestBlock,
-            topics: [eventTopics],
-          });
-
-          if (cancelled) return;
-
-          const parsedLogs = rawLogs
-            .map((log) => {
-              try {
-                return { ...log, parsed: contract.interface.parseLog(log) };
-              } catch {
-                return null;
-              }
-            })
-            .filter(Boolean);
-
-          allEvents = parsedLogs.map((entry) => ({
-            ...entry,
-            type: entry.parsed.name,
-            args: entry.parsed.args,
-          }));
+          const api = await import("../lib/liveApi");
+          const snap = await api.fetchLiveSnapshot({ signal: null });
+          if (snap && Array.isArray(snap.events) && snap.events.length > 0) {
+            feed = snap.events.slice(0, 12).map((ev, i) => ({
+              key: `${ev.tx_hash}-${ev.block}-${i}`,
+              label: ev.label ?? ev.event ?? "Event",
+              tone: ev.tone ?? "waiting",
+              icon: ev.icon ?? "•",
+              escrowId: ev.escrow_id != null ? String(ev.escrow_id) : "--",
+              txHash: ev.tx_hash,
+              blockNumber: ev.block,
+              timeAgo:
+                ev.time_ago != null
+                  ? formatRelativeTime(Math.floor(Date.now() / 1000) - Number(ev.time_ago))
+                  : "just now",
+              detail: ev.detail ?? `${ev.label ?? ev.event} on-chain.`,
+            }));
+          }
         } catch (err) {
-          console.warn("feed getLogs failed (escrows will still update):", err);
+          console.warn("backend /live unavailable, falling back to direct RPC feed:", err);
         }
 
-        // ethers v6 Result throws RangeError on out-of-range array access,
-        // so use a safe positional getter for event args.
-        const getArg = (args, index) => {
-          if (!args) return undefined;
+        if (!feed) {
+          // Chunked getLogs fallback. The testnet RPC caps a single get_logs
+          // range at ~10k blocks and the contract's earliest events are far
+          // back, so scan a wide window in sequential chunks (never parallel —
+          // bursts get rate-limited).
+          const FEED_LOOKBACK_BLOCKS = 60_000;
+          const GET_LOGS_CHUNK = 10_000;
+          const fromBlock = Math.max(0, latestBlock - FEED_LOOKBACK_BLOCKS);
+          let allEvents = [];
+
           try {
-            return args[index];
-          } catch {
-            return undefined;
+            const eventTopics = eventNames.map((name) =>
+              contract.interface.getEvent(name).topicHash,
+            );
+            const rawLogs = [];
+            for (let start = fromBlock; start <= latestBlock; start += GET_LOGS_CHUNK) {
+              if (cancelled) return;
+              const end = Math.min(latestBlock, start + GET_LOGS_CHUNK - 1);
+              const chunkLogs = await provider.getLogs({
+                address: CONTRACT_ADDRESS,
+                fromBlock: start,
+                toBlock: end,
+                topics: [eventTopics],
+              });
+              rawLogs.push(...chunkLogs);
+            }
+
+            if (cancelled) return;
+
+            const parsedLogs = rawLogs
+              .map((log) => {
+                try {
+                  return { ...log, parsed: contract.interface.parseLog(log) };
+                } catch {
+                  return null;
+                }
+              })
+              .filter(Boolean);
+
+            allEvents = parsedLogs.map((entry) => ({
+              ...entry,
+              type: entry.parsed.name,
+              args: entry.parsed.args,
+            }));
+          } catch (err) {
+            console.warn("feed getLogs failed (escrows will still update):", err);
           }
-        };
 
-        const blockCache = new Map();
-        const formatBlockTime = async (blockNumber) => {
-          if (blockCache.has(blockNumber)) return blockCache.get(blockNumber);
-          const block = await provider.getBlock(blockNumber);
-          const timestamp = block?.timestamp ?? 0;
-          blockCache.set(blockNumber, timestamp);
-          return timestamp;
-        };
+          // ethers v6 Result throws RangeError on out-of-range array access,
+          // so use a safe positional getter for event args.
+          const getArg = (args, index) => {
+            if (!args) return undefined;
+            try {
+              return args[index];
+            } catch {
+              return undefined;
+            }
+          };
 
-        const feed = await Promise.all(
-          allEvents
-            .sort((a, b) => {
-              if (a.blockNumber !== b.blockNumber) return b.blockNumber - a.blockNumber;
-              return (b.logIndex ?? 0) - (a.logIndex ?? 0);
-            })
-            .slice(0, 12)
-            .map(async (event) => {
-              const meta = ACTIVITY_META[event.type] ?? {
-                label: event.type,
-                tone: "waiting",
-                icon: "•",
-              };
+          const blockCache = new Map();
+          const formatBlockTime = async (blockNumber) => {
+            if (blockCache.has(blockNumber)) return blockCache.get(blockNumber);
+            const block = await provider.getBlock(blockNumber);
+            const timestamp = block?.timestamp ?? 0;
+            blockCache.set(blockNumber, timestamp);
+            return timestamp;
+          };
 
-              const timestamp = await formatBlockTime(event.blockNumber);
-              const escrowIdFromEvent = event.args?.escrowId ?? getArg(event.args, 0);
-              const amountFromEvent = event.args?.amount ?? getArg(event.args, 1);
-              const clientFromEvent = event.args?.client ?? getArg(event.args, 1);
-              const freelancerFromEvent = event.args?.freelancer ?? getArg(event.args, 2);
+          feed = await Promise.all(
+            allEvents
+              .sort((a, b) => {
+                if (a.blockNumber !== b.blockNumber) return b.blockNumber - a.blockNumber;
+                return (b.logIndex ?? 0) - (a.logIndex ?? 0);
+              })
+              .slice(0, 12)
+              .map(async (event) => {
+                const meta = ACTIVITY_META[event.type] ?? {
+                  label: event.type,
+                  tone: "waiting",
+                  icon: "•",
+                };
 
-              let detail = `Block #${event.blockNumber}`;
-              if (event.type === "EscrowCreated") {
-                detail = `Client ${shortenAddress(clientFromEvent)} → Freelancer ${shortenAddress(
-                  freelancerFromEvent,
-                )} · ${formatAmount(amountFromEvent)}`;
-              } else if (event.type === "FundsDeposited") {
-                detail = `${formatAmount(amountFromEvent)} locked in escrow`;
-              } else if (event.type === "FundsReleased") {
-                detail = `${formatAmount(amountFromEvent)} sent to freelancer`;
-              } else if (event.type === "EscrowCancelled") {
-                detail = `${formatAmount(amountFromEvent)} refunded to client`;
-              } else if (event.type === "DisputeRaised") {
-                detail = `Dispute opened — awaiting arbitration`;
-              } else if (event.type === "DisputeResolved") {
-                detail = `Resolved in favor of ${event.args?.favorFreelancer ? "freelancer" : "client"} · ${formatAmount(
-                  amountFromEvent,
-                )}`;
-              } else {
-                detail = `Escrow #${escrowIdFromEvent?.toString?.() ?? escrowIdFromEvent}`;
-              }
+                const timestamp = await formatBlockTime(event.blockNumber);
+                const escrowIdFromEvent = event.args?.escrowId ?? getArg(event.args, 0);
+                const amountFromEvent = event.args?.amount ?? getArg(event.args, 1);
+                const clientFromEvent = event.args?.client ?? getArg(event.args, 1);
+                const freelancerFromEvent = event.args?.freelancer ?? getArg(event.args, 2);
 
-              return {
-                key: `${event.transactionHash}-${event.logIndex}`,
-                label: meta.label,
-                tone: meta.tone,
-                icon: meta.icon,
-                escrowId: escrowIdFromEvent?.toString?.() ?? String(escrowIdFromEvent ?? "--"),
-                txHash: event.transactionHash,
-                blockNumber: event.blockNumber,
-                timeAgo: formatRelativeTime(timestamp),
-                detail,
-              };
-            }),
-        );
+                let detail = `Block #${event.blockNumber}`;
+                if (event.type === "EscrowCreated") {
+                  detail = `Client ${shortenAddress(clientFromEvent)} → Freelancer ${shortenAddress(
+                    freelancerFromEvent,
+                  )} · ${formatAmount(amountFromEvent)}`;
+                } else if (event.type === "FundsDeposited") {
+                  detail = `${formatAmount(amountFromEvent)} locked in escrow`;
+                } else if (event.type === "FundsReleased") {
+                  detail = `${formatAmount(amountFromEvent)} sent to freelancer`;
+                } else if (event.type === "EscrowCancelled") {
+                  detail = `${formatAmount(amountFromEvent)} refunded to client`;
+                } else if (event.type === "DisputeRaised") {
+                  detail = `Dispute opened — awaiting arbitration`;
+                } else if (event.type === "DisputeResolved") {
+                  detail = `Resolved in favor of ${event.args?.favorFreelancer ? "freelancer" : "client"} · ${formatAmount(
+                    amountFromEvent,
+                  )}`;
+                } else {
+                  detail = `Escrow #${escrowIdFromEvent?.toString?.() ?? escrowIdFromEvent}`;
+                }
+
+                return {
+                  key: `${event.transactionHash}-${event.logIndex}`,
+                  label: meta.label,
+                  tone: meta.tone,
+                  icon: meta.icon,
+                  escrowId: escrowIdFromEvent?.toString?.() ?? String(escrowIdFromEvent ?? "--"),
+                  txHash: event.transactionHash,
+                  blockNumber: event.blockNumber,
+                  timeAgo: formatRelativeTime(timestamp),
+                  detail,
+                };
+              }),
+          );
+        }
 
         if (cancelled) return;
-        setActivityItems(feed);
+        setActivityItems(feed ?? []);
 
         // List ALL escrows — prefer the backend /escrows endpoint (escrowCount-
         // based, cached server-side). If the backend is down or the response is
@@ -467,8 +511,23 @@ function Dashboard(props) {
     };
   }, [selectedSummaryId, providerSource]);
 
+  // Auto-refresh: re-run the chain snapshot on the interval chosen in Settings.
+  useEffect(() => {
+    if (!refreshMs) return undefined;
+    const id = setInterval(() => setRefreshTick((tick) => tick + 1), refreshMs);
+    return () => clearInterval(id);
+  }, [refreshMs]);
+
   const displayedSummary = summaryEscrow ?? recentEscrows[0] ?? null;
   const displayedStep = Math.min(Math.max(liveStep, 0), STEPS.length);
+
+  // Timeline for the open modal: activity feed events for that escrow.
+  const selectedEscrowEvents = useMemo(() => {
+    if (!selectedEscrow) return [];
+    return activityItems.filter(
+      (item) => String(item.escrowId) === String(selectedEscrow.id),
+    );
+  }, [selectedEscrow, activityItems]);
 
   return (
     <main className="dashboard">
@@ -524,12 +583,15 @@ function Dashboard(props) {
               setEscrowId={handleSetEscrowId}
               setCurrentStep={handleSetCurrentStep}
               onBlockchainUpdate={triggerBlockchainRefresh}
+              defaultExpiryDays={defaultExpiryDays}
             />
           </section>
 
-          <ActivityFeed activityItems={activityItems} feedLoading={feedLoading} />
+          {showActivityFeed && (
+            <ActivityFeed activityItems={activityItems} feedLoading={feedLoading} />
+          )}
 
-          <EscrowsList escrows={recentEscrows} />
+          <EscrowsList escrows={recentEscrows} onSelectEscrow={setSelectedEscrow} />
 
           <section id="transactions" className="card dashboard-section">
             <div className="summary-header">
@@ -542,15 +604,15 @@ function Dashboard(props) {
 
             {activityItems.length ? (
               <div style={{ display: "grid", gap: "12px", marginTop: "6px" }}>
-                {activityItems.slice(0, 6).map((item) => (
+                {activityItems.slice(0, txVisibleCount).map((item) => (
                   <div
                     key={`tx-${item.key}`}
-                    className="summary-item"
+                    className="summary-item tx-item"
                     style={{
                       padding: "14px 16px",
-                      borderRadius: "16px",
-                      background: "rgba(255,255,255,0.68)",
-                      border: "1px solid rgba(148,163,184,0.12)",
+                      borderRadius: "12px",
+                      background: "rgba(15,20,40,0.5)",
+                      border: "1px solid #1e2126",
                     }}
                   >
                     <div style={{ minWidth: 0 }}>
@@ -575,65 +637,20 @@ function Dashboard(props) {
                 Transaction history will appear here once escrow events hit the chain.
               </p>
             )}
+
+            {activityItems.length > txVisibleCount && (
+              <div style={{ textAlign: "center", marginTop: "14px" }}>
+                <button
+                  type="button"
+                  className="premium-action-btn premium-action-btn--load-more"
+                  onClick={() => setTxVisibleCount((count) => count + 6)}
+                >
+                  Show more ({activityItems.length - txVisibleCount} remaining)
+                </button>
+              </div>
+            )}
           </section>
 
-          <section id="settings" className="card dashboard-section">
-            <div className="summary-header">
-              <div>
-                <h3>⚙️ Settings</h3>
-                <p>Wallet and UI preferences</p>
-              </div>
-            </div>
-
-            <p className="section-copy">
-              Theme controls, network hints, and other preferences can live here later.
-            </p>
-          </section>
-
-          <section id="help-center" className="card dashboard-section">
-            <div className="summary-header">
-              <div>
-                <h3>❓ Help Center</h3>
-                <p>Open help while keeping the escrow flow untouched</p>
-              </div>
-              <span className="status-badge live">Live</span>
-            </div>
-
-            <div style={{ display: "grid", gap: "14px", marginTop: "6px" }}>
-              <div className="help-section" style={{ padding: "16px" }}>
-                <h4 style={{ marginTop: 0 }}>Need Help?</h4>
-                <p className="section-copy">
-                  Use the sidebar to jump around the dashboard, or use the escrow buttons
-                  to continue the blockchain flow without any lifecycle changes.
-                </p>
-                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "14px" }}>
-                  <button
-                    type="button"
-                    className="help-cta"
-                    onClick={() => onNavigate?.("dashboard")}
-                  >
-                    Back to Dashboard
-                  </button>
-                  <button
-                    type="button"
-                    className="help-cta"
-                    onClick={() => onNavigate?.("create-escrow")}
-                  >
-                    Go to Create Escrow
-                  </button>
-                </div>
-              </div>
-
-              <div className="help-section" style={{ padding: "16px" }}>
-                <h4 style={{ marginTop: 0 }}>Quick Tips</h4>
-                <ul style={{ margin: 0, paddingLeft: "18px", lineHeight: 1.8, color: "#64748b" }}>
-                  <li>Approve USDC before trying to deposit funds.</li>
-                  <li>Use the correct escrow ID before calling submit or release.</li>
-                  <li>The summary, wallet, and activity feed are read directly from chain data.</li>
-                </ul>
-              </div>
-            </div>
-          </section>
         </section>
 
         <aside className="dashboard-side">
@@ -667,6 +684,12 @@ function Dashboard(props) {
           />
         </aside>
       </div>
+
+      <EscrowDetailModal
+        escrow={selectedEscrow}
+        events={selectedEscrowEvents}
+        onClose={() => setSelectedEscrow(null)}
+      />
     </main>
   );
 }

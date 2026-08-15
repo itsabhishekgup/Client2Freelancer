@@ -3,6 +3,9 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {ArcBridgeEscrow} from "../src/ArcBridgeEscrow.sol";
+// Plain import so file-scope helpers (IERC20) used by the contract are in scope
+// for casts in tests.
+import "../src/ArcBridgeEscrow.sol";
 
 /// @notice Minimal ERC-20 stand-in for USDC (6 decimals, mintable).
 contract MockUSDC {
@@ -608,6 +611,171 @@ contract ArcBridgeEscrowTest is Test {
         (,,,,,,, bool _refunded,,,) = _fields(id);
         assertTrue(_refunded);
         assertEq(usdc.balanceOf(client), clientBefore + amount);
+        assertEq(usdc.balanceOf(address(escrow)), 0);
+    }
+
+    // ---------------- escrow cap ----------------
+
+    function test_EscrowCap_DefaultIsFifty() public {
+        assertEq(escrow.maxEscrowsPerClient(), 50);
+    }
+
+    function test_EscrowCap_AllowsUpToCap() public {
+        for (uint256 i = 0; i < 50; i++) {
+            vm.prank(client);
+            escrow.createEscrow(freelancer, AMOUNT);
+        }
+        assertEq(escrow.clientEscrowCount(client), 50);
+        assertEq(escrow.escrowCount(), 50);
+    }
+
+    function test_EscrowCap_BlocksExcess() public {
+        for (uint256 i = 0; i < 50; i++) {
+            vm.prank(client);
+            escrow.createEscrow(freelancer, AMOUNT);
+        }
+
+        vm.expectRevert(ArcBridgeEscrow.EscrowCapExceeded.selector);
+        vm.prank(client);
+        escrow.createEscrow(freelancer, AMOUNT);
+        assertEq(escrow.escrowCount(), 50);
+    }
+
+    function test_EscrowCap_BlocksExcessWithDeadline() public {
+        for (uint256 i = 0; i < 50; i++) {
+            vm.prank(client);
+            escrow.createEscrow(freelancer, AMOUNT);
+        }
+
+        vm.expectRevert(ArcBridgeEscrow.EscrowCapExceeded.selector);
+        vm.prank(client);
+        escrow.createEscrowWithDeadline(freelancer, AMOUNT, 1 days);
+    }
+
+    function test_EscrowCap_IsPerClient() public {
+        // A different wallet is unaffected by the client's count.
+        for (uint256 i = 0; i < 50; i++) {
+            vm.prank(client);
+            escrow.createEscrow(freelancer, AMOUNT);
+        }
+        vm.prank(other);
+        escrow.createEscrow(freelancer, AMOUNT);
+        assertEq(escrow.clientEscrowCount(other), 1);
+    }
+
+    function test_EscrowCap_OwnerCanChange() public {
+        // The test contract deploys the escrow, so it is already the owner.
+        escrow.setMaxEscrowsPerClient(2);
+        assertEq(escrow.maxEscrowsPerClient(), 2);
+
+        vm.prank(client);
+        escrow.createEscrow(freelancer, AMOUNT);
+        vm.prank(client);
+        escrow.createEscrow(freelancer, AMOUNT);
+
+        vm.expectRevert(ArcBridgeEscrow.EscrowCapExceeded.selector);
+        vm.prank(client);
+        escrow.createEscrow(freelancer, AMOUNT);
+    }
+
+    function test_EscrowCap_OnlyOwnerCanChange() public {
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), other));
+        vm.prank(other);
+        escrow.setMaxEscrowsPerClient(2);
+    }
+
+    function test_EscrowCap_RejectsZero() public {
+        vm.expectRevert(ArcBridgeEscrow.InvalidAmount.selector);
+        escrow.setMaxEscrowsPerClient(0);
+    }
+
+    // ---------------- rescue ----------------
+
+    function _rescue(address token, address recipient) internal {
+        // The test contract deployed the escrow, so it is already the owner.
+        escrow.rescueTokens(IERC20(token), recipient);
+    }
+
+    function test_Rescue_NonOwnerReverts() public {
+        usdc.mint(address(escrow), AMOUNT);
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), other));
+        vm.prank(other);
+        escrow.rescueTokens(IERC20(address(usdc)), other);
+    }
+
+    function test_Rescue_ZeroRecipientReverts() public {
+        usdc.mint(address(escrow), AMOUNT);
+        vm.expectRevert(ArcBridgeEscrow.RescueZeroAddress.selector);
+        _rescue(address(usdc), address(0));
+    }
+
+    function test_Rescue_EmptyBalanceReverts() public {
+        vm.expectRevert(ArcBridgeEscrow.NothingToRescue.selector);
+        _rescue(address(usdc), address(0xBeef));
+    }
+
+    function test_Rescue_AccidentalUsdcExcess() public {
+        // 100 USDC locked in escrow + 25 USDC accidentally sent to the contract.
+        _createAndFund(AMOUNT);
+        usdc.mint(address(escrow), 25e6);
+        assertEq(escrow.lockedBalance(), AMOUNT);
+        assertEq(usdc.balanceOf(address(escrow)), AMOUNT + 25e6);
+
+        uint256 ownerBefore = usdc.balanceOf(address(this));
+        _rescue(address(usdc), address(this));
+
+        // Only the 25 USDC excess leaves; the 100 USDC escrow deposit stays.
+        assertEq(usdc.balanceOf(address(this)), ownerBefore + 25e6);
+        assertEq(usdc.balanceOf(address(escrow)), AMOUNT);
+        assertEq(escrow.lockedBalance(), AMOUNT);
+    }
+
+    function test_Rescue_CannotTouchEscrowFunds() public {
+        // Locked funds alone are not rescusable — owner only gets excess.
+        _createAndFund(AMOUNT);
+        assertEq(usdc.balanceOf(address(escrow)), AMOUNT);
+
+        vm.expectRevert(ArcBridgeEscrow.NothingToRescue.selector);
+        _rescue(address(usdc), address(this));
+    }
+
+    function test_Rescue_AfterReleaseExcessIsFullBalance() public {
+        // Once everything is released, lockedBalance is 0 and any leftover
+        // balance is rescueable in full.
+        uint256 id = _fundedSubmittedApproved(AMOUNT);
+        vm.prank(client);
+        escrow.releaseFunds(id);
+        assertEq(escrow.lockedBalance(), 0);
+
+        usdc.mint(address(escrow), 10e6);
+        uint256 ownerBefore = usdc.balanceOf(address(this));
+        _rescue(address(usdc), address(this));
+        assertEq(usdc.balanceOf(address(this)), ownerBefore + 10e6);
+        assertEq(usdc.balanceOf(address(escrow)), 0);
+    }
+
+    function test_Rescue_NonEscrowTokenFullBalance() public {
+        // Any non-USDC token accidentally received is rescued in full.
+        MockUSDC randomToken = new MockUSDC();
+        randomToken.mint(address(escrow), 1_000e6);
+        assertEq(randomToken.balanceOf(address(escrow)), 1_000e6);
+
+        uint256 ownerBefore = randomToken.balanceOf(address(this));
+        _rescue(address(randomToken), address(this));
+        assertEq(randomToken.balanceOf(address(this)), ownerBefore + 1_000e6);
+        assertEq(randomToken.balanceOf(address(escrow)), 0);
+    }
+
+    function test_Rescue_LockedBalanceTracksDisputeResolution() public {
+        uint256 id = _createAndFund(AMOUNT);
+        vm.prank(freelancer);
+        escrow.disputeEscrow(id);
+        assertEq(escrow.lockedBalance(), AMOUNT);
+
+        // Resolve in favor of the client: funds leave, lockedBalance drops.
+        vm.prank(arbitrator);
+        escrow.resolveDispute(id, false);
+        assertEq(escrow.lockedBalance(), 0);
         assertEq(usdc.balanceOf(address(escrow)), 0);
     }
 }

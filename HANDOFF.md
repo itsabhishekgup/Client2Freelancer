@@ -10,11 +10,12 @@
 - New fields: `refunded`, `disputed`, `createdAt`, `expiresAt` · events: `EscrowCancelled`, `DisputeRaised`, `DisputeResolved`
 - `forge test`: **46/46 pass** (44 escrow + 2 counter). `via_ir` enabled in foundry.toml (stack-too-deep)
 
-**Deploy** — NEW contract LIVE: `0xabba73911a892fe33bd8f173608075f89cd0b757`
-- Tx: `0xa4a3e5032406292b5e9d69b4a76c609383cdc0adb394acbf490239bb94ee7810`
-- Verified: escrowCount=0 (fresh), defaultDuration=604800, arbitrator=deployer `0x36a7...`
-- Updated in: `frontend/src/contracts/config.js` + `backend/main.py` default
-- Old address `0x3Dd9f286...` fully removed from project
+**Deploy** — NEW contract LIVE: `0x788bd809f93b8915f0dcd1ab3b3560355c8d0ff3`
+- Tx: `0x06c5f558f50446c29d793568e757cad1c0dacbbceff0ddb376e85fffade9564e`
+- Verified: escrowCount=0 (fresh), maxEscrowsPerClient=50, lockedBalance=0, arbitrator=deployer `0x36a7...` — **✅ ArcScan source verified**
+- New features: `rescueTokens` (USDC-excess only, escrow funds protected), `setMaxEscrowsPerClient` (spam cap), `lockedBalance`/`clientEscrowCount` state — forge tests **60/60 pass**
+- Updated in: `frontend/src/contracts/config.js` + `backend/main.py` default + `.env.example` files + README
+- Previous address `0xabba73911a892fe33bd8f173608075f89cd0b757` fully removed from project
 
 **Backend (`backend/main.py`)** — all fixes verified:
 - `time_ago` block-number bug → real block timestamps

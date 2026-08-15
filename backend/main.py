@@ -15,7 +15,7 @@ from web3 import Web3
 
 ARC_RPC_URL = os.getenv("ARC_RPC_URL", "https://rpc.testnet.arc.network")
 CONTRACT_ADDRESS = Web3.to_checksum_address(
-    os.getenv("CONTRACT_ADDRESS", "0xabba73911a892fe33bd8f173608075f89cd0b757")
+    os.getenv("CONTRACT_ADDRESS", "0x788bd809f93b8915f0dcd1ab3b3560355c8d0ff3")
 )
 USDC_ADDRESS = Web3.to_checksum_address(
     os.getenv("USDC_ADDRESS", "0x3600000000000000000000000000000000000000")
@@ -23,14 +23,14 @@ USDC_ADDRESS = Web3.to_checksum_address(
 CHAIN_NAME = os.getenv("CHAIN_NAME", "Arc Testnet")
 CHAIN_ID = int(os.getenv("CHAIN_ID", "5042002"))
 POLL_SECONDS = max(3, int(os.getenv("POLL_SECONDS", "8")))
-RECENT_BLOCKS = max(1, int(os.getenv("RECENT_BLOCKS", "200")))
+RECENT_BLOCKS = max(1, int(os.getenv("RECENT_BLOCKS", "2000")))
 # How far back to look for events on startup (feed backfill). Arc testnet is
 # very fast (~1000 blocks/min), so the default covers a meaningful slice. The
 # poller grinds through this window in MAX_SCAN_BLOCKS chunks so a slow or
 # rate-limited RPC doesn't get blasted with one huge get_logs range.
-BACKFILL_BLOCKS = max(RECENT_BLOCKS, int(os.getenv("BACKFILL_BLOCKS", "20000")))
+BACKFILL_BLOCKS = max(RECENT_BLOCKS, int(os.getenv("BACKFILL_BLOCKS", "60000")))
 # Max blocks scanned per poll cycle; keeps each cycle cheap and RPC-friendly.
-MAX_SCAN_BLOCKS = max(RECENT_BLOCKS, int(os.getenv("MAX_SCAN_BLOCKS", "1000")))
+MAX_SCAN_BLOCKS = max(RECENT_BLOCKS, int(os.getenv("MAX_SCAN_BLOCKS", "2000")))
 SAMPLE_ESCROWS = max(4, int(os.getenv("SAMPLE_ESCROWS", "12")))
 # If the total escrow count is at or below this, load every escrow so stats are exact.
 MAX_ESCROWS = max(SAMPLE_ESCROWS, int(os.getenv("MAX_ESCROWS", "100")))
@@ -543,25 +543,28 @@ def scan_new_events(from_block: int, to_block: int) -> List[Dict[str, Any]]:
 
 
 async def poll_chain() -> None:
+    """Background poller. All blocking web3 work runs in worker threads via
+    asyncio.to_thread so the event loop stays free and HTTP requests (which
+    run in FastAPI's thread pool) are never stalled by a slow RPC scan."""
     while True:
         try:
-            latest = int(w3.eth.block_number)
+            latest = await asyncio.to_thread(lambda: int(w3.eth.block_number))
             start = state.last_scanned_block + 1 if state.last_scanned_block else max(1, latest - RECENT_BLOCKS)
             # Scan at most MAX_SCAN_BLOCKS per cycle so startup backfill (and any
             # sustained catch-up) stays incremental instead of one huge range.
             end = min(latest, start + MAX_SCAN_BLOCKS - 1)
             if end >= start:
-                new_events = scan_new_events(start, end)
+                new_events = await asyncio.to_thread(scan_new_events, start, end)
                 if new_events:
-                    state.recent_events = (new_events + state.recent_events)[:24]
+                    state.recent_events = (new_events + state.recent_events)[:200]
                 state.last_scanned_block = end
             state.latest_block = latest
             state.healthy = True
             state.error = ""
             state.last_synced_at = now_ts()
-            # Rebuild the cached summary in the background (only cached when the
-            # build completes without RPC failures).
-            load_chain_summary(use_cache=False)
+            # Rebuild the cached summary in a worker thread (only cached when
+            # the build completes without RPC failures).
+            await asyncio.to_thread(lambda: load_chain_summary(use_cache=False))
         except Exception as exc:
             state.healthy = False
             state.error = str(exc)
@@ -588,6 +591,7 @@ def live(address: str = Query(default=""), escrow_id: str = Query(default="")) -
             **_empty_summary(),
             "wallet": load_wallet_summary(address.strip()),
             "events": state.recent_events[:12],
+            "event_total": len(state.recent_events),
         }
 
     chain = load_chain_summary()
@@ -603,11 +607,20 @@ def live(address: str = Query(default=""), escrow_id: str = Query(default="")) -
             except Exception:
                 pass
 
+    # Serve a per-escrow event timeline when escrow_id is given, otherwise the
+    # 12 most recent events (the activity feed).
+    if escrow_id.strip().isdigit():
+        events = [
+            ev for ev in state.recent_events if str(ev.get("escrow_id")) == escrow_id.strip()
+        ]
+    else:
+        events = state.recent_events[:12]
+
     return {
         **chain,
         "wallet": wallet,
         "selected_escrow": selected,
-        "events": state.recent_events[:12],
+        "events": events,
     }
 
 

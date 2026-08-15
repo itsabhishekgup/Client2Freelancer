@@ -53,6 +53,7 @@ function CreateEscrow({
   setEscrowId,
   setCurrentStep = () => {},
   onBlockchainUpdate = () => {},
+  defaultExpiryDays = 0,
 }) {
   const [freelancer, setFreelancer] = useState("");
   const [amount, setAmount] = useState("");
@@ -210,10 +211,17 @@ function CreateEscrow({
         const contract = await connectContract();
         if (!contract) return;
 
-        const tx = await contract.createEscrow(
-          freelancer.trim(),
-          parseUnits(amount.toString(), 6),
-        );
+        const tx =
+          defaultExpiryDays > 0
+            ? await contract.createEscrowWithDeadline(
+                freelancer.trim(),
+                parseUnits(amount.toString(), 6),
+                defaultExpiryDays * 24 * 60 * 60,
+              )
+            : await contract.createEscrow(
+                freelancer.trim(),
+                parseUnits(amount.toString(), 6),
+              );
         const createTxHash = tx.hash;
 
         const receipt = await tx.wait();

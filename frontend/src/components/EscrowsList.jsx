@@ -1,12 +1,15 @@
 import { useMemo, useState } from "react";
 import EscrowCard from "./EscrowCard";
 
-const PAGE_SIZE = 5;
+// Only the most recent escrow shows by default; the rest appear behind
+// "Show more" so the dashboard stays short.
+const INITIAL_VISIBLE = 1;
+const LOAD_STEP = 5;
 
-function EscrowsList({ escrows }) {
+function EscrowsList({ escrows, onSelectEscrow }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -51,7 +54,7 @@ function EscrowsList({ escrows }) {
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
-            setVisibleCount(PAGE_SIZE);
+            setVisibleCount(INITIAL_VISIBLE);
           }}
           style={{ flex: "1 1 220px", padding: "10px 14px" }}
         />
@@ -60,7 +63,7 @@ function EscrowsList({ escrows }) {
           value={statusFilter}
           onChange={(e) => {
             setStatusFilter(e.target.value);
-            setVisibleCount(PAGE_SIZE);
+            setVisibleCount(INITIAL_VISIBLE);
           }}
           style={{ padding: "10px 14px" }}
         >
@@ -78,7 +81,7 @@ function EscrowsList({ escrows }) {
       {visible.length ? (
         <div style={{ display: "grid", gap: "12px", marginTop: "14px" }}>
           {visible.map((escrow) => (
-            <EscrowCard key={escrow.id} escrow={escrow} />
+            <EscrowCard key={escrow.id} escrow={escrow} onSelect={onSelectEscrow} />
           ))}
         </div>
       ) : (
@@ -94,13 +97,13 @@ function EscrowsList({ escrows }) {
           <button
             type="button"
             className="premium-action-btn premium-action-btn--load-more"
-            onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+            onClick={() => setVisibleCount((count) => count + LOAD_STEP)}
           >
-            Load more ({filtered.length - visibleCount} remaining)
+            Show more ({filtered.length - visibleCount} remaining)
           </button>
         </div>
       )}
-      {!hasMore && filtered.length > PAGE_SIZE && (
+      {!hasMore && filtered.length > INITIAL_VISIBLE && (
         <p className="section-copy" style={{ textAlign: "center", marginTop: "12px" }}>
           Showing all {filtered.length} escrows
         </p>

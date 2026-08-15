@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 const NAV_ITEMS = [
   { id: "dashboard", icon: "🏠", label: "Dashboard" },
+  { id: "analytics", icon: "📊", label: "Analytics" },
   { id: "create-escrow", icon: "➕", label: "Create Escrow" },
   { id: "my-escrows", icon: "📦", label: "My Escrows" },
   { id: "transactions", icon: "💸", label: "Transactions" },

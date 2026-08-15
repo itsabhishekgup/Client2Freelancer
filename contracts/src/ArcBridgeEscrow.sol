@@ -101,6 +101,9 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
     error EscrowExpired();
     error CannotCancel();
     error CannotClaim();
+    error RescueZeroAddress();
+    error NothingToRescue();
+    error EscrowCapExceeded();
 
     struct Escrow {
         address client;
@@ -119,8 +122,14 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
     IERC20 public immutable usdc;
     uint256 public escrowCount;
     uint256 public defaultDuration;
+    uint256 public maxEscrowsPerClient;
     address public arbitrator;
+    // Sum of amounts locked in funded, unreleased escrows. Kept in sync so the
+    // owner can rescue accidentally-sent tokens without ever touching client
+    // funds, and so rescueTokens never needs an O(n) loop over escrows.
+    uint256 public lockedBalance;
     mapping(uint256 => Escrow) public escrows;
+    mapping(address => uint256) public clientEscrowCount;
 
     event EscrowCreated(uint256 indexed escrowId, address indexed client, address indexed freelancer, uint256 amount);
     event FundsDeposited(uint256 indexed escrowId, uint256 amount);
@@ -130,12 +139,15 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
     event EscrowCancelled(uint256 indexed escrowId, uint256 amount);
     event DisputeRaised(uint256 indexed escrowId);
     event DisputeResolved(uint256 indexed escrowId, bool favorFreelancer, uint256 amount);
+    event TokensRescued(address indexed token, address indexed recipient, uint256 amount);
+    event MaxEscrowsPerClientUpdated(uint256 maxEscrows);
 
     constructor(address _usdc) Ownable(msg.sender) {
         if (_usdc == address(0)) revert InvalidUSDC();
         usdc = IERC20(_usdc);
         arbitrator = msg.sender;
         defaultDuration = 7 days;
+        maxEscrowsPerClient = 50;
     }
 
     modifier onlyArbitrator() {
@@ -155,6 +167,33 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
         defaultDuration = _duration;
     }
 
+    /// @notice Set how many escrows a single wallet may create (spam cap).
+    ///         Owner only. Counts every escrow ever created by the wallet.
+    function setMaxEscrowsPerClient(uint256 _max) external onlyOwner {
+        if (_max == 0) revert InvalidAmount();
+        maxEscrowsPerClient = _max;
+        emit MaxEscrowsPerClientUpdated(_max);
+    }
+
+    /// @notice Recover tokens sent directly to the contract by mistake. For
+    ///         the escrow token (USDC), only the amount *above* what open
+    ///         escrows lock can be rescued, so client funds are never at risk.
+    ///         Other tokens are rescued in full. Owner only.
+    function rescueTokens(IERC20 token, address recipient) external onlyOwner nonReentrant {
+        if (recipient == address(0)) revert RescueZeroAddress();
+        uint256 balance = token.balanceOf(address(this));
+        if (balance == 0) revert NothingToRescue();
+
+        uint256 amount = balance;
+        if (address(token) == address(usdc)) {
+            if (balance <= lockedBalance) revert NothingToRescue();
+            amount = balance - lockedBalance;
+        }
+
+        token.safeTransfer(recipient, amount);
+        emit TokensRescued(address(token), recipient, amount);
+    }
+
     /// @notice Create an escrow with the configured default duration.
     function createEscrow(address f, uint256 a) external returns (uint256) {
         return createEscrowWithDeadline(f, a, defaultDuration);
@@ -165,6 +204,10 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
         if (f == address(0)) revert InvalidFreelancer();
         if (a == 0) revert InvalidAmount();
         if (duration == 0) revert InvalidAmount();
+
+        uint256 clientCount = clientEscrowCount[msg.sender] + 1;
+        if (clientCount > maxEscrowsPerClient) revert EscrowCapExceeded();
+        clientEscrowCount[msg.sender] = clientCount;
 
         escrowCount++;
         uint256 id = escrowCount;
@@ -195,6 +238,7 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
         if (_expired(e)) revert EscrowExpired();
         usdc.safeTransferFrom(msg.sender, address(this), e.amount);
         e.funded = true;
+        lockedBalance += e.amount;
         emit FundsDeposited(id, e.amount);
     }
 
@@ -231,6 +275,7 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
         if (e.released) revert AlreadyReleased();
         if (e.disputed) revert AlreadyDisputed();
         e.released = true;
+        lockedBalance -= e.amount;
         usdc.safeTransfer(e.freelancer, e.amount);
         emit FundsReleased(id, e.amount);
     }
@@ -254,6 +299,7 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
         uint256 refund = e.funded ? e.amount : 0;
         e.refunded = true;
         if (refund > 0) {
+            lockedBalance -= e.amount;
             usdc.safeTransfer(e.client, refund);
         }
         emit EscrowCancelled(id, refund);
@@ -270,6 +316,7 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
         if (e.disputed) revert AlreadyDisputed();
         if (!_expired(e)) revert NotExpired();
         e.released = true;
+        lockedBalance -= e.amount;
         usdc.safeTransfer(e.freelancer, e.amount);
         emit FundsReleased(id, e.amount);
     }
@@ -293,6 +340,7 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
         if (e.released || e.refunded) revert AlreadyReleased();
 
         e.disputed = false;
+        lockedBalance -= e.amount;
         if (favorFreelancer) {
             e.released = true;
             usdc.safeTransfer(e.freelancer, e.amount);

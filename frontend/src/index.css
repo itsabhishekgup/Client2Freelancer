@@ -2,12 +2,32 @@
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #0f172a;
-  background: #eef5ff;
+  color: #e2e8f0;
+  background: #05070f;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Futuristic dark theme tokens */
+  --bg-deep: #05070f;
+  --bg-navy: #0a0e1e;
+  --bg-card: rgba(15, 20, 40, 0.72);
+  --bg-card-solid: #0d1226;
+  --glass-border: rgba(148, 163, 184, 0.14);
+  --glass-border-strong: rgba(148, 163, 184, 0.28);
+  --text-primary: #e2e8f0;
+  --text-secondary: #8fa3c4;
+  --text-muted: #64748b;
+  --accent-blue: #4f7cff;
+  --accent-purple: #a855f7;
+  --accent-cyan: #22d3ee;
+  --accent-gradient: linear-gradient(135deg, #4f7cff 0%, #a855f7 100%);
+  --glow-blue: 0 0 24px rgba(79, 124, 255, 0.35);
+  --glow-purple: 0 0 24px rgba(168, 85, 247, 0.3);
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
 }
 
 html,
@@ -25,7 +45,7 @@ body {
   box-sizing: border-box;
 }
 
-/* ---- Toast notifications ---- */
+/* ---- Toast notifications (dark glass) ---- */
 .toast-viewport {
   position: fixed;
   top: 18px;
@@ -45,14 +65,14 @@ body {
   gap: 10px;
   padding: 12px 14px;
   border-radius: 14px;
-  background: rgba(15, 23, 42, 0.92);
+  background: rgba(13, 18, 38, 0.92);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   color: #f1f5f9;
   font-size: 0.86rem;
   font-weight: 600;
   line-height: 1.4;
-  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 30px rgba(2, 6, 23, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(148, 163, 184, 0.25);
   animation: toast-in 0.22s ease;
 }

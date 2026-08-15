@@ -5,6 +5,7 @@ dist/
 # Environment
 .env
 .env.*
+!.env.example
 
 # Logs
 *.log
@@ -20,3 +21,14 @@ Thumbs.db
 cache/
 out/
 broadcast/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Coverage
+.coverage
+htmlcov/
