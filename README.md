@@ -6,6 +6,8 @@ ArcBridge is a full-stack escrow protocol that lets clients and freelancers tran
 
 **Live contract:** [`0x788bd809f93b8915f0dcd1ab3b3560355c8d0ff3`](https://testnet.arcscan.app/address/0x788bd809f93b8915f0dcd1ab3b3560355c8d0ff3) on Arc Testnet (chain id `5042002`) — **✅ source verified on ArcScan** (Solidity `v0.8.35`, ABI published)
 
+📜 **License:** [MIT](LICENSE) · Copyright © 2026 Abhishek
+
 ---
 
 ## ✨ Features

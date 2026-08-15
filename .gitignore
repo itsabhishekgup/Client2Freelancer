@@ -32,3 +32,6 @@ venv/
 # Coverage
 .coverage
 htmlcov/
+
+# Freebuff desktop app local state (SQLite databases — never commit)
+.freebuff/
