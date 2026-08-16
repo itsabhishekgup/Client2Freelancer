@@ -19,6 +19,7 @@ import {
 } from "../lib/escrowFormat";
 import ActivityFeed from "./ActivityFeed";
 import CreateEscrow from "./CreateEscrow";
+import SafetySummaryCard from "./SafetySummaryCard";
 import EscrowDetailModal from "./EscrowDetailModal";
 import EscrowsList from "./EscrowsList";
 import EscrowSummaryPanel from "./EscrowSummaryPanel";
@@ -57,13 +58,14 @@ function Dashboard(props) {
     loading: false,
   });
   const [activityItems, setActivityItems] = useState([]);
+  const [circleWallet, setCircleWallet] = useState(null);
   const [recentEscrows, setRecentEscrows] = useState([]);
   const [summaryEscrow, setSummaryEscrow] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [summaryError, setSummaryError] = useState("");
   const [feedLoading, setFeedLoading] = useState(false);
-  const [txVisibleCount, setTxVisibleCount] = useState(6);
+  const [txVisibleCount, setTxVisibleCount] = useState(3);
   const [selectedEscrow, setSelectedEscrow] = useState(null);
 
   const { address: connectedAddress, walletProvider } = useWalletBridge();
@@ -584,6 +586,7 @@ function Dashboard(props) {
               setCurrentStep={handleSetCurrentStep}
               onBlockchainUpdate={triggerBlockchainRefresh}
               defaultExpiryDays={defaultExpiryDays}
+              circleWallet={circleWallet}
             />
           </section>
 
@@ -603,29 +606,57 @@ function Dashboard(props) {
             </div>
 
             {activityItems.length ? (
-              <div style={{ display: "grid", gap: "12px", marginTop: "6px" }}>
+              <div className="tx-list" style={{ display: "grid", gap: "8px", marginTop: "8px" }}>
                 {activityItems.slice(0, txVisibleCount).map((item) => (
                   <div
                     key={`tx-${item.key}`}
                     className="summary-item tx-item"
                     style={{
-                      padding: "14px 16px",
-                      borderRadius: "12px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      padding: "9px 12px",
+                      borderRadius: "10px",
                       background: "rgba(15,20,40,0.5)",
                       border: "1px solid #1e2126",
                     }}
                   >
-                    <div style={{ minWidth: 0 }}>
-                      <span style={{ display: "block", marginBottom: "4px" }}>
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        flex: "none",
+                        width: "28px",
+                        height: "28px",
+                        borderRadius: "8px",
+                        display: "grid",
+                        placeItems: "center",
+                        fontSize: "13px",
+                        background: "rgba(94,106,210,0.12)",
+                        border: "1px solid rgba(94,106,210,0.22)",
+                      }}
+                    >
+                      {item.icon || "•"}
+                    </span>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <span style={{ display: "block", fontSize: "13px", lineHeight: 1.35 }}>
                         {item.label}
                       </span>
-                      <strong style={{ fontSize: "13px" }}>{shortenAddress(item.txHash)}</strong>
+                      <strong style={{ fontSize: "11.5px", color: "#7c838e", fontWeight: 500 }}>
+                        {shortenAddress(item.txHash)}
+                      </strong>
                     </div>
-                    <div style={{ textAlign: "right" }}>
-                      <span style={{ display: "block", marginBottom: "4px" }}>
+                    <div style={{ textAlign: "right", flex: "none" }}>
+                      <span
+                        style={{
+                          display: "block",
+                          fontSize: "11px",
+                          color: "#7c838e",
+                          lineHeight: 1.35,
+                        }}
+                      >
                         Block #{item.blockNumber}
                       </span>
-                      <strong style={{ fontSize: "12px", color: "#64748b" }}>
+                      <strong style={{ fontSize: "11px", color: "#64748b", fontWeight: 500 }}>
                         {item.timeAgo}
                       </strong>
                     </div>
@@ -643,7 +674,7 @@ function Dashboard(props) {
                 <button
                   type="button"
                   className="premium-action-btn premium-action-btn--load-more"
-                  onClick={() => setTxVisibleCount((count) => count + 6)}
+                  onClick={() => setTxVisibleCount((count) => count + 3)}
                 >
                   Show more ({activityItems.length - txVisibleCount} remaining)
                 </button>
@@ -654,7 +685,9 @@ function Dashboard(props) {
         </section>
 
         <aside className="dashboard-side">
-          <WalletPanel wallet={wallet} />
+          <WalletPanel wallet={wallet} onCircleChange={setCircleWallet} />
+
+          <SafetySummaryCard onNavigate={onNavigate} />
 
           <section className="card quick-help-card">
             <div className="summary-header">

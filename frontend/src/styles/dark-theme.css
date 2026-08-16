@@ -1625,6 +1625,26 @@ select:focus {
   font-size: 12px;
 }
 
+.landing-footer-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #a5b0f0;
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.landing-footer-link:hover {
+  color: #c7cdff;
+  text-decoration: underline;
+}
+
+.landing-footer-sep {
+  color: #3a3f47;
+}
+
 /* ============================================================
    Linear.app-style DASHBOARD (override layer)
    Loaded after the glass/neon layer — flat surfaces,
@@ -1901,11 +1921,23 @@ select:focus {
 /* ---- Status badges: muted chips ---- */
 .wallet-badge,
 .status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 4px 9px;
   border-radius: 999px;
   font-size: 11px;
+}
+
+.escrow-status-icon {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+
+.wallet-badge,
+.status-badge {
   font-weight: 600;
-  border: 1px solid transparent;
 }
 
 .status-badge.completed,
@@ -2081,6 +2113,62 @@ select {
 select:focus {
   border-color: #5e6ad2;
   box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.18);
+}
+
+/* ---- Create Escrow: compact desktop ---- */
+@media (min-width: 769px) {
+  .create-escrow-card {
+    padding: 22px;
+    gap: 13px;
+  }
+
+  .create-escrow-head {
+    gap: 12px;
+  }
+
+  .create-escrow-card .section-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    font-size: 18px;
+  }
+
+  .create-escrow-card h2 {
+    font-size: 16px;
+  }
+
+  .escrow-subtitle {
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin-top: 2px;
+  }
+
+  .escrow-role-badge {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+
+  .escrow-hint {
+    font-size: 12px;
+    margin: 0;
+  }
+
+  .create-escrow-card input {
+    min-height: 44px;
+    padding: 10px 13px;
+    font-size: 13px;
+  }
+
+  .create-escrow-card .action-grid {
+    gap: 10px;
+    margin-top: 0;
+  }
+
+  .create-escrow-card .action-grid button {
+    min-height: 36px;
+    padding: 8px 12px;
+    font-size: 12.5px;
+  }
 }
 
 /* ---- Lists & dividers ---- */
@@ -2343,6 +2431,483 @@ select:focus {
 .help-status-item > span:last-child {
   color: #7c838e;
   font-size: 12.5px;
+}
+
+/* ---- Why Arc page ---- */
+.whyarc-page {
+  max-width: 860px;
+}
+
+.whyarc-intro h4,
+.whyarc-reasons h4,
+.whyarc-network h4 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #e2e5ea;
+}
+
+.whyarc-intro {
+  margin-bottom: 20px;
+}
+
+.whyarc-intro p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: #8a919c;
+}
+
+.whyarc-intro strong {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.whyarc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.whyarc-card {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #1e2126;
+  background: #0d0e10;
+}
+
+.whyarc-card-icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  background: rgba(94, 106, 210, 0.12);
+  border: 1px solid rgba(94, 106, 210, 0.22);
+}
+
+.whyarc-card strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e5ea;
+  margin-bottom: 3px;
+}
+
+.whyarc-card p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #7c838e;
+}
+
+.whyarc-reasons {
+  margin-bottom: 22px;
+}
+
+.whyarc-reasons-list {
+  display: grid;
+  gap: 8px;
+}
+
+.whyarc-reason {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #1e2126;
+  background: #0d0e10;
+}
+
+.whyarc-reason > span:first-child {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: #34d399;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.whyarc-reason strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e5ea;
+  margin-bottom: 2px;
+}
+
+.whyarc-reason p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #7c838e;
+}
+
+.whyarc-network {
+  margin-bottom: 22px;
+}
+
+.whyarc-table {
+  border: 1px solid #1e2126;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.whyarc-table-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #1c1f24;
+  background: #0d0e10;
+}
+
+.whyarc-table-row:last-child {
+  border-bottom: none;
+}
+
+.whyarc-table-label {
+  font-size: 12.5px;
+  color: #7c838e;
+}
+
+.whyarc-table-value {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #cbd5e1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ---- Why Arc: comparison table ---- */
+.whyarc-compare {
+  margin-bottom: 22px;
+}
+
+.whyarc-compare h4 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #e2e5ea;
+}
+
+.whyarc-compare-note {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #7c838e;
+}
+
+.whyarc-compare-table {
+  border: 1px solid #1e2126;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.whyarc-compare-head,
+.whyarc-compare-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 1fr;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
+.whyarc-compare-head {
+  background: #0d0e10;
+  border-bottom: 1px solid #1c1f24;
+}
+
+.whyarc-compare-head span {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+}
+
+.whyarc-compare-head .whyarc-compare-arc {
+  color: #a5b0f0;
+}
+
+.whyarc-compare-row {
+  border-bottom: 1px solid #1c1f24;
+  background: #0d0e10;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #8a919c;
+}
+
+.whyarc-compare-row:last-child {
+  border-bottom: none;
+}
+
+.whyarc-compare-row .whyarc-compare-aspect {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.whyarc-compare-row .whyarc-compare-arc {
+  color: #c7cdff;
+}
+
+/* ---- Why Arc: resources ---- */
+.whyarc-resources {
+  margin-bottom: 22px;
+}
+
+.whyarc-resources h4 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #e2e5ea;
+}
+
+.whyarc-resources-list {
+  display: grid;
+  gap: 8px;
+}
+
+.whyarc-resource {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid #1e2126;
+  background: #0d0e10;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.whyarc-resource:hover {
+  border-color: #2b4aa8;
+  background: #101218;
+}
+
+.whyarc-resource-icon {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  color: #a5b0f0;
+  background: rgba(94, 106, 210, 0.12);
+  border: 1px solid rgba(94, 106, 210, 0.22);
+}
+
+.whyarc-resource-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.whyarc-resource-copy strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e5ea;
+}
+
+.whyarc-resource-copy span {
+  font-size: 12px;
+  color: #7c838e;
+}
+
+/* ---- Circle wallet (WalletPanel) ---- */
+.wallet-circle {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #1c1f24;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wallet-unified-disconnect {
+  width: 100%;
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+.wallet-circle-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 3px;
+  border-radius: 8px;
+  background: #0d0e10;
+  border: 1px solid #26292f;
+  width: fit-content;
+}
+
+.wallet-circle-tab {
+  border: none;
+  background: transparent;
+  color: #7c838e;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.wallet-circle-tab:hover:not(:disabled) {
+  color: #cbd5e1;
+}
+
+.wallet-circle-tab.active {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+}
+
+.wallet-circle-tab:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.wallet-circle-login {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wallet-circle-login label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.wallet-circle-login label strong {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #e2e5ea;
+}
+
+.wallet-circle-login label span {
+  font-size: 11px;
+  color: #7c838e;
+}
+
+.wallet-circle-login input {
+  min-height: 36px;
+  padding: 8px 11px;
+  border-radius: 7px;
+  border: 1px solid #26292f;
+  background: #0d0e10;
+  color: #f2f4f7;
+  font-size: 13px;
+}
+
+.wallet-circle-login input:focus {
+  outline: none;
+  border-color: #5e6ad2;
+  box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.18);
+}
+
+.wallet-circle-login .escrow-hint {
+  font-size: 11px;
+  margin: 0;
+}
+
+.wallet-circle-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.wallet-circle-address {
+  font-size: 12px;
+  font-weight: 600;
+  color: #cbd5e1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.wallet-circle-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wallet-circle-actions .premium-action-btn {
+  flex: 1;
+  min-width: 120px;
+}
+
+.wallet-circle-note {
+  font-size: 11px;
+  color: #7c838e;
+  line-height: 1.5;
+}
+
+/* Sidebar Why Arc button */
+.sidebar-whyarc {
+  margin-top: 10px;
+}
+
+.sidebar-whyarc-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid #1c1f24;
+  background: #0d0e10;
+  color: #9aa1ab;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-whyarc-btn:hover {
+  background: #121418;
+  border-color: #2b2f36;
+  color: #d1d5db;
+}
+
+.sidebar-whyarc-btn.active {
+  background: rgba(94, 106, 210, 0.12);
+  border-color: rgba(94, 106, 210, 0.35);
+  color: #a5b0f0;
+}
+
+.sidebar-whyarc-btn .sidebar-icon {
+  color: #6b7280;
+}
+
+.sidebar-whyarc-btn.active .sidebar-icon {
+  color: #a5b0f0;
+}
+
+@media (max-width: 768px) {
+  .whyarc-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .whyarc-compare-head,
+  .whyarc-compare-row {
+    grid-template-columns: 96px 1fr;
+  }
+
+  .whyarc-compare-general {
+    display: none;
+  }
 }
 
 @media (max-width: 900px) {
@@ -3303,6 +3868,91 @@ select:focus {
 
 .escrow-card-clickable:hover .escrow-card-arrow {
   transform: translateX(3px);
+  color: #fff;
+}
+
+/* Compact My Escrows card (EscrowCard) — two-line layout that keeps the
+   list short: id + amount + badge on line 1, client → freelancer on line 2. */
+.escrow-card-compact {
+  padding: 12px 14px;
+  border-radius: 10px;
+}
+
+.escrow-card-compact-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.escrow-card-compact-id {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.escrow-card-compact-id .escrow-row-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #e2e5ea !important;
+  white-space: nowrap;
+}
+
+.escrow-card-compact-amount {
+  font-size: 12px;
+  font-weight: 500;
+  color: #8a919c;
+  white-space: nowrap;
+}
+
+.escrow-card-compact-parties {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.escrow-card-compact-party {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: #9aa1ab;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.escrow-card-compact-label {
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+.escrow-card-compact-flow {
+  flex: 0 0 auto;
+  color: #4b5563;
+  font-size: 12px;
+}
+
+.escrow-card-compact-chevron {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 16px;
+  line-height: 1;
+  color: #6b7280;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.escrow-card-clickable:hover .escrow-card-compact-chevron {
+  transform: translateX(2px);
   color: #fff;
 }
 

@@ -24,6 +24,7 @@ const FILES = [
   ["index.css", join(stylesDir, "..", "index.css")],
   ["dashboard.css", join(stylesDir, "dashboard.css")],
   ["dark-theme.css", join(stylesDir, "dark-theme.css")],
+  ["safety-center.css", join(stylesDir, "safety-center.css")],
 ];
 const MAX_WIDTH = 1000; // extract blocks with max-width <= 1000px
 

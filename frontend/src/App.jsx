@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "./styles/globals.css";
 import "./styles/dashboard.css";
 import "./styles/dark-theme.css";
+import "./styles/safety-center.css";
 import "./styles/force-mobile.css"; // mobile-browser "Desktop site" mode fix
 
 import Landing from "./components/Landing";
@@ -10,7 +11,9 @@ import Settings from "./components/Settings";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./components/Dashboard";
 import HelpCenter from "./components/HelpCenter";
+import WhyArc from "./components/WhyArc";
 import AnalyticsPanel from "./components/AnalyticsPanel";
+import SafetyCenter from "./components/SafetyCenter";
 import ForceMobileBanner from "./components/ForceMobileBanner";
 import ChatWidget from "./components/ChatWidget";
 
@@ -24,7 +27,7 @@ function App() {
     () => localStorage.getItem("arcbridge-accent") || "blue",
   );
   const [refreshMs, setRefreshMs] = useState(
-    () => Number(localStorage.getItem("arcbridge-refresh") || 0),
+    () => Number(localStorage.getItem("arcbridge-refresh") || 30000),
   );
   const [compact, setCompact] = useState(
     () => localStorage.getItem("arcbridge-compact") === "1",
@@ -89,7 +92,9 @@ function App() {
   };
 
   const isHelpPage = view === "app" && activeSection === "help-center";
+  const isWhyArcPage = view === "app" && activeSection === "why-arc";
   const isAnalyticsPage = view === "app" && activeSection === "analytics";
+  const isSafetyPage = view === "app" && activeSection === "safety-center";
 
   const settingsProps = {
     accent,
@@ -126,6 +131,10 @@ function App() {
 
         {isHelpPage ? (
           <HelpCenter onNavigate={handleNavigate} />
+        ) : isWhyArcPage ? (
+          <WhyArc onNavigate={handleNavigate} />
+        ) : isSafetyPage ? (
+          <SafetyCenter onNavigate={handleNavigate} />
         ) : isAnalyticsPage ? (
           <main className="dashboard">
             <section id="analytics" className="dashboard-header analytics-page-header">

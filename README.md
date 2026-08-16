@@ -27,7 +27,7 @@ ArcBridge is a full-stack escrow protocol that lets clients and freelancers tran
 - **`GET /live`** — wallet summary, chain state, recent activity events
 - **`GET /escrow/{id}`** — single escrow detail
 - **`GET /escrows`** — paginated list (`limit`/`offset`) with **status filter** + **search** by id/client/freelancer
-- **`POST /api/chat`** — hybrid support assistant: instant rule-based answers + optional Gemini AI fallback
+- **`POST /api/chat`** — Escrow Copilot: instant rule-based answers (30+ intents, EN/HI, includes troubleshooting) + optional Gemini AI fallback
 - Background **poller** keeps a cached view of chain state (no cold-start latency), 15s TTL cache, partial-read safety on RPC rate-limits
 
 ### Frontend (React + Vite)
@@ -37,7 +37,7 @@ ArcBridge is a full-stack escrow protocol that lets clients and freelancers tran
 - ⚙️ **Settings modal** — accent colors, auto-refresh, compact density, default expiry duration, feed toggle
 - 💸 **Full escrow actions** — create, cancel, dispute, resolve (per-role buttons)
 - 🔔 **Toast system** with tx-hash explorer links + pending-confirmation states
-- 🤖 **AI support assistant** — floating chat widget (Hinglish/English), instant FAQ answers, Gemini AI for anything else
+- 🤖 **Escrow Copilot** — floating chat widget (English/Hindi), trained on the full lifecycle incl. troubleshooting, Gemini AI for anything else
 
 ---
 
@@ -102,7 +102,7 @@ npm run dev            # http://localhost:5173
 | `BACKFILL_BLOCKS` | `20000` | Event backfill window |
 | `ESCROWS_CACHE_TTL` | `15` | List cache TTL (s) |
 | `GEMINI_API_KEY` | _(empty)_ | Free Gemini API key for AI assistant fallback (optional) |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model used by the assistant |
+| `GEMINI_MODEL` | `gemini-3.1-flash-lite` | Gemini model used by the assistant |
 
 ### Frontend (`frontend/.env`)
 | Variable | Purpose |
@@ -115,15 +115,19 @@ npm run dev            # http://localhost:5173
 
 ---
 
-## 🤖 AI Assistant (optional)
+## 🤖 Escrow Copilot (optional AI)
 
-The floating **🤖 chat widget** (bottom-right) is a hybrid support bot:
+The floating **chat widget** (bottom-right) is **Escrow Copilot** — ArcBridge's
+built-in assistant, trained on the full escrow lifecycle:
 
-1. **Instant rules** — a curated knowledge base answers the common questions
-   (escrow lifecycle, dispute/cancel/refund, wallet, gas, statuses, settings…)
-   in Hinglish/English. Works with **zero setup, no API key**, even offline.
-2. **Gemini fallback** — questions the rules can't answer go to **Gemini 2.5
-   Flash** (free tier) for real AI responses.
+1. **Instant rules** — a curated knowledge base (30+ intents, English + Hindi)
+   answers lifecycle questions AND diagnoses real problems: why funds are not
+   released, failed/reverted transactions, wrong network, USDC approval
+   missing, escrow not found, cancel-after-funding rules, the per-client cap,
+   token recovery (Safety Center), refund timing, and data-refresh issues.
+   Works with **zero setup, no API key**, even offline.
+2. **Gemini fallback** — questions the rules can't answer go to **Gemini 3.1
+   Flash-Lite** (free tier) for real AI responses in the user's language.
 
 Enable the AI part:
 
@@ -137,6 +141,56 @@ cd backend && python -m uvicorn main:app --reload --port 8000
 
 Without a key the bot still answers every FAQ instantly and politely points
 elsewhere for anything custom — the app never breaks because of the AI part.
+
+---
+
+## 💳 Circle Wallet (optional — email login)
+
+ArcBridge supports **Circle User-Controlled Wallets** as a second connect
+option alongside the regular Reown/WalletConnect popup. Users log in with an
+email (OTP), get a non-custodial wallet on **Arc Testnet** (officially
+supported by Circle, `ARC-TESTNET`), and approve escrow actions on-device —
+no wallet extension or seed phrase needed.
+
+```bash
+# 1. Create a Circle Web3 Services account: https://console.circle.com
+# 2. Generate an API key (format: TEST_API_KEY:id:secret — keep the full string),
+#    register an app (get its App ID), and set up SMTP for email OTP
+#    (Developer Console → Settings → SMTP; without it email login returns
+#    error 155150 "SMTP server configuration is not found")
+# 3. Put them in backend/.env (copy from .env.example)
+CIRCLE_API_KEY=TEST_API_KEY:your-id:your-secret
+CIRCLE_ENTITY_SECRET=your-entity-secret
+CIRCLE_APP_ID=your-app-id
+# 4. Restart the backend
+cd backend && python -m uvicorn main:app --reload --port 8000
+```
+
+**Two login methods** (toggle in Wallet Overview):
+
+- **Email OTP** — needs SMTP configured in the Circle Console (error 155150
+  otherwise).
+- **PIN** — no SMTP needed; enter any unique user ID and set your PIN in the
+  Circle popup. Fastest path for demos / hackathons.
+
+How it works:
+
+1. **Wallet Overview → "Connect with Circle"** — choose Email or PIN. For
+   email, an OTP challenge is created by the backend (which holds the API key)
+   and approved on-device via the Web SDK. For PIN, the backend creates the
+   user + returns a userToken directly (no email involved).
+2. A wallet is created on Arc Testnet (or the existing one is reused) and its
+   address appears in the panel.
+3. Every escrow action (create, deposit, submit, approve, release, cancel,
+   dispute) **automatically uses the Circle wallet** once connected — the
+   backend creates a contract-execution challenge and the user approves it
+   in the SDK confirmation UI.
+4. The regular Reown connect flow still works side-by-side; a connected
+   Circle wallet just takes over the escrow actions.
+
+Without credentials the "Connect with Circle" panel shows a clear
+"not configured" hint and the app keeps working with the normal wallet flow —
+the Circle integration never breaks the app.
 
 ---
 

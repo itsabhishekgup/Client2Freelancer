@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite").strip()
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 RULE_THRESHOLD = 1
@@ -61,8 +61,8 @@ KB: List[Dict[str, Any]] = [
         "intent": "greeting",
         "keywords": ["hello", "hi", "hey", "namaste", "namaskar", "good morning", "good evening", "kaise ho", "salaam", "good afternoon", "yo"],
         "answer": {
-            "en": "Hello. I'm the ArcBridge support assistant.\n\nI can help you with creating escrows, depositing funds, disputes, refunds, wallet setup, gas, and network information. Ask in English or Hindi and I'll reply in the same language.",
-            "hi": "Namaste. Main ArcBridge ka support assistant hoon.\n\nEscrow banane, funds deposit karne, dispute, refund, wallet connect, gas aur network ki jankari — in sab mein madad kar sakta hoon. English ya Hindi mein poochhein, jawab usi bhasha mein milega.",
+            "en": "Hello. I'm Escrow Copilot, ArcBridge's built-in escrow assistant.\n\nI can help you with creating escrows, depositing funds, disputes, refunds, wallet setup, gas, and network information. Ask in English or Hindi and I'll reply in the same language.",
+            "hi": "Namaste. Main Escrow Copilot hoon — ArcBridge ka built-in escrow assistant.\n\nEscrow banane, funds deposit karne, dispute, refund, wallet connect, gas aur network ki jankari — in sab mein madad kar sakta hoon. English ya Hindi mein poochhein, jawab usi bhasha mein milega.",
         },
     },
     {
@@ -197,8 +197,8 @@ KB: List[Dict[str, Any]] = [
         "intent": "bot_identity",
         "keywords": ["who are you", "tum kaun", "kya ho", "kaun ho", "assistant", "bot", "are you", "helpful", "your name", "what are you", "who made you", "are you a robot"],
         "answer": {
-            "en": "I'm the ArcBridge support assistant, built into the platform.\n\nI answer common questions instantly from a curated knowledge base, and use an AI model for anything more specific. ArcBridge is a trustless USDC escrow platform on the Arc Network testnet.",
-            "hi": "Main ArcBridge ka support assistant hoon, jo platform mein built-in hai.\n\nCommon sawalon ke jawab curated knowledge base se turant deta hoon, aur zyada specific sawalon ke liye AI model use karta hoon. ArcBridge Arc Network testnet par ek trustless USDC escrow platform hai.",
+            "en": "I'm Escrow Copilot — ArcBridge's built-in escrow assistant, trained on the full escrow lifecycle.\n\nI answer common questions instantly from a curated knowledge base, and use an AI model for anything more specific. ArcBridge is a trustless USDC escrow platform on the Arc Network testnet.",
+            "hi": "Main Escrow Copilot hoon — ArcBridge ka built-in escrow assistant, poore escrow lifecycle par trained.\n\nCommon sawalon ke jawab curated knowledge base se turant deta hoon, aur zyada specific sawalon ke liye AI model use karta hoon. ArcBridge Arc Network testnet par ek trustless USDC escrow platform hai.",
         },
     },
     {
@@ -265,15 +265,125 @@ KB: List[Dict[str, Any]] = [
             "hi": "Alvida. Koi bhi dikkat ho to Help Center aur main dono yahin hain.",
         },
     },
+    {
+        "intent": "funds_not_released",
+        "keywords": ["why my funds not released", "funds not released", "money not released", "not paid yet", "paise nahi aaye", "payment not received", "funds stuck", "money stuck", "still not paid", "when will i get paid", "payment pending", "funds not transferred", "escrow not completed"],
+        "answer": {
+            "en": "Funds are released only after every step in the lifecycle is completed. Check these in order:\n\n1. Funded — has the client deposited the USDC? If not, the escrow is still Waiting and nothing can move.\n2. Work Submitted — has the freelancer submitted the work? Without this, the client has nothing to approve.\n3. Work Approved — has the client approved the work? Funds stay locked until approval.\n4. Released — after approval, release happens instantly and the escrow shows Completed.\n\nOpen the escrow in My Escrows and click it to see the exact stage on the timeline. If you are the client and want your money back instead, use Cancel (before funding) or Claim After Expiry (after the deadline).",
+            "hi": "Funds tabhi release hote hain jab lifecycle ka har step complete ho. Is order mein check karein:\n\n1. Funded — kya client ne USDC deposit kiya hai? Agar nahi, to escrow abhi Waiting hai aur kuch move nahi ho sakta.\n2. Work Submitted — kya freelancer ne work submit kiya hai? Bina iske client ko approve karne ko kuch nahi milta.\n3. Work Approved — kya client ne work approve kiya hai? Approval tak funds locked rehte hain.\n4. Released — approval ke baad release turant ho jata hai aur escrow Completed dikhta hai.\n\nMy Escrows mein escrow kholkar click karein — timeline par exact stage dikhega. Agar aap client hain aur paisa wapas chahiye, to Cancel (funding se pehle) ya Claim After Expiry (deadline ke baad) use karein.",
+        },
+    },
+    {
+        "intent": "tx_failed",
+        "keywords": ["transaction failed", "tx failed", "reverted", "transaction error", "failed transaction", "txn failed", "error in transaction", "transaction rejected", "trx failed"],
+        "answer": {
+            "en": "A failed transaction usually has one of these causes:\n\n1. Insufficient gas — your wallet needs a small balance of native ARC for the fee.\n2. Wrong network — the wallet must be connected to Arc Network (Chain ID 5042002).\n3. USDC approval missing — for deposits, the USDC token must be approved first.\n4. You are not a participant — only the client or freelancer on the escrow can call its actions.\n\nCheck the wallet popup for the exact error message and try again. If it says 'execution reverted', copy the reason and ask me about it.",
+            "hi": "Failed transaction ke aksar ye karan hote hain:\n\n1. Insufficient gas — wallet mein fee ke liye thoda native ARC hona chahiye.\n2. Wrong network — wallet Arc Network (Chain ID 5042002) se connected hona chahiye.\n3. USDC approval missing — deposit ke liye pehle USDC token approve karna zaroori hai.\n4. Aap participant nahi hain — escrow ke actions sirf uske client ya freelancer call kar sakte hain.\n\nWallet popup mein exact error message check karke dobara try karein. Agar 'execution reverted' likha hai, to reason copy karke mujhse poochhein.",
+        },
+    },
+    {
+        "intent": "wrong_network",
+        "keywords": ["wrong network", "switch network", "add network", "unsupported chain", "network not supported", "chain mismatch", "wrong chain", "change network", "arc network add", "network error", "connect to arc"],
+        "answer": {
+            "en": "ArcBridge runs on the Arc Network testnet. To switch:\n\n1. Open your wallet and switch the network to Arc Network (Chain ID 5042002).\n2. If it is not listed, add it using the RPC URL from Settings > Network Info.\n3. Once connected, reconnect the app (disconnect and connect again if needed).\n\nThe dashboard shows your connected network at the top of the Wallet panel, so you can confirm before sending a transaction.",
+            "hi": "ArcBridge Arc Network testnet par chalta hai. Switch karne ke liye:\n\n1. Apna wallet kholkar network Arc Network (Chain ID 5042002) par switch karein.\n2. Agar listed nahi hai, to Settings > Network Info se RPC URL use karke add karein.\n3. Connect hone ke baad app dobara connect karein (zaroorat ho to disconnect karke wapas connect karein).\n\nDashboard ke Wallet panel mein aapka connected network top par dikhta hai — transaction bhejne se pehle confirm kar sakte hain.",
+        },
+    },
+    {
+        "intent": "allowance",
+        "keywords": ["approve failed", "allowance", "insufficient allowance", "approval required", "approve usdc", "token approval", "usdc not approved", "approve first", "can't approve", "approval error"],
+        "answer": {
+            "en": "Depositing USDC requires a one-time token approval. If it failed:\n\n1. Make sure you are on Arc Network (Chain ID 5042002).\n2. Ensure your wallet has enough native ARC for the approval gas fee.\n3. Try increasing the approval amount or resetting it in your wallet if the contract was updated.\n\nAfter a successful approval, the deposit transaction goes through immediately.",
+            "hi": "USDC deposit ke liye ek baar ka token approval zaroori hai. Agar fail hua to:\n\n1. Confirm karein ki aap Arc Network (Chain ID 5042002) par hain.\n2. Approval ki gas fee ke liye wallet mein kaafi native ARC ho.\n3. Agar contract update hua hai to wallet mein approval amount badhakar ya reset karke try karein.\n\nApproval successful hone ke baad deposit transaction turant pass ho jata hai.",
+        },
+    },
+    {
+        "intent": "escrow_not_found",
+        "keywords": ["escrow not found", "invalid escrow", "escrow does not exist", "escrow doesn't exist", "wrong escrow id", "escrow deleted", "no such escrow", "escrow not exist", "can't find escrow", "escrow id invalid", "id not found"],
+        "answer": {
+            "en": "An escrow ID is a positive number assigned on-chain at creation. If the escrow is not found:\n\n1. Check that you entered the full numeric ID (for example, 42, not 42.0 or #42).\n2. Confirm the escrow was actually created — check My Escrows for the exact ID.\n3. Escrows are never deleted, so a valid ID always resolves.\n\nIf My Escrows is empty, connect the wallet that created the escrow, or search by the client or freelancer address.",
+            "hi": "Escrow ID ek positive number hai jo creation ke waqt on-chain assign hota hai. Agar escrow nahi mil raha:\n\n1. Poora numeric ID daala hai check karein (jaise 42, 42.0 ya #42 nahi).\n2. Confirm karein ki escrow sach mein bana tha — exact ID ke liye My Escrows check karein.\n3. Escrows kabhi delete nahi hote, isliye valid ID hamesha resolve hota hai.\n\nAgar My Escrows khali hai, to wo wallet connect karein jisne escrow banaya tha, ya client/freelancer address se search karein.",
+        },
+    },
+    {
+        "intent": "who_arbitrator",
+        "keywords": ["who is the arbitrator", "who is arbitrator", "arbitrator kaun", "how to become arbitrator", "who decides", "who resolves", "arbitrator address", "arbitrator kya", "who is the judge", "dispute kaun solve", "arbitrator role"],
+        "answer": {
+            "en": "The arbitrator is a designated address set on the contract by the owner. Their role:\n\n1. When a dispute is raised, the funds are frozen.\n2. The arbitrator reviews both sides and calls Resolve to Freelancer or Resolve to Client.\n3. That decision moves the funds instantly, and the escrow closes.\n\nThe arbitrator address is shown on the Safety Center page under Contract Safety. Arbitrators are set by the contract owner and are not user-selectable.",
+            "hi": "Arbitrator ek designated address hai jo owner contract par set karta hai. Inka role:\n\n1. Jab dispute raise hota hai, funds freeze ho jate hain.\n2. Arbitrator dono paksh sunkar Resolve to Freelancer ya Resolve to Client call karta hai.\n3. Us decision se funds turant move hote hain aur escrow close ho jata hai.\n\nArbitrator ka address Safety Center page ke Contract Safety section mein dikhta hai. Arbitrators contract owner set karte hain, users select nahi kar sakte.",
+        },
+    },
+    {
+        "intent": "cancel_after_funded",
+        "keywords": ["cancel after funding", "funded escrow cancel", "change my mind", "money deducted", "paid already", "cancel after paying", "want my money back after", "can i cancel after fund", "cancel funded escrow", "paisa kat gaya"],
+        "answer": {
+            "en": "Cancelling a funded escrow depends on the stage:\n\n1. Before funding: Cancel Escrow refunds the client instantly.\n2. After funding but before work is submitted: the client can wait for the expiry deadline and then use Claim After Expiry to recover the funds.\n3. After work is submitted: the funds move only through approval/release or dispute resolution.\n\nSo a funded escrow cannot be cancelled unilaterally mid-work — that is what keeps the freelancer protected. If there is a real disagreement, raise a Dispute instead.",
+            "hi": "Funded escrow cancel karna stage par depend karta hai:\n\n1. Funding se pehle: Cancel Escrow se client ko turant refund mil jata hai.\n2. Funding ke baad par work submit hone se pehle: client expiry deadline ka wait karke Claim After Expiry se funds recover kar sakta hai.\n3. Work submit hone ke baad: funds sirf approval/release ya dispute resolution se move hote hain.\n\nIsliye funded escrow beech kaam mein unilaterally cancel nahi ho sakta — isi se freelancer protected rehta hai. Agar sach mein disagreement hai, to Dispute raise karein.",
+        },
+    },
+    {
+        "intent": "escrow_limit",
+        "keywords": ["how many escrows", "escrow limit", "cap", "max escrows", "only one escrow", "escrow limit reached", "spam protection", "multiple escrows", "more than one escrow", "limit kya", "how many can i create", "escrow cap"],
+        "answer": {
+            "en": "The contract enforces a per-client cap on simultaneous open escrows (a spam protection measure).\n\n1. The cap is set by the contract owner and applies to escrows that are still open.\n2. Once an escrow is completed, refunded, or otherwise closed, it no longer counts toward the cap.\n\nIf you hit the cap, close outstanding escrows first or contact the owner to raise the limit.",
+            "hi": "Contract ek per-client cap enforce karta hai — ek client ek saath kitne open escrows rakh sakta hai (spam protection measure).\n\n1. Cap contract owner set karta hai aur sirf still-open escrows par apply hota hai.\n2. Escrow completed, refunded, ya closed hone ke baad cap mein count nahi hota.\n\nAgar cap hit ho jaye, to pehle outstanding escrows close karein ya limit badhane ke liye owner se contact karein.",
+        },
+    },
+    {
+        "intent": "why_arc",
+        "keywords": ["why arc", "what is arc", "what is arc network", "arc network kya", "arc blockchain", "arc kya hai", "why did you choose arc", "why arc network", "arc vs ethereum", "why arcbridge uses arc", "tell me about arc", "arc testnet kya", "arc layer 1"],
+        "answer": {
+            "en": "Why ArcBridge is built on Arc (Arc Network):\n\n1. USDC is the native gas — every transaction fee is paid in USDC, so costs are dollar-denominated, low, and predictable. No volatile ETH/BTC gas.\n2. Deterministic sub-second finality — escrow actions (deposit, approve, release) confirm almost instantly.\n3. Native USDC — no wrapping or bridges, so no bridge risk for escrow funds.\n4. EVM-compatible — standard Solidity, wallets, and tooling work as-is.\n5. Purpose-built for stablecoin finance and payments by Circle, the team behind USDC.\n\nThe full Why Arc page (features, comparison vs general-purpose chains, and resources) is in the app under Sidebar > Why Arc.\n\nUseful links:\n- Official site: https://www.arc.io\n- Documentation: https://docs.arc.network\n- Testnet explorer: https://testnet.arcscan.app\n- Faucet (free testnet USDC): https://faucet.circle.com\n- GitHub (Arc node): https://github.com/circlefin/arc-node",
+            "hi": "ArcBridge Arc Network par kyun bana hai:\n\n1. USDC native gas hai — har transaction fee USDC mein paid hoti hai, matlab costs dollar-denominated, low, aur predictable. Koi volatile ETH/BTC gas nahi.\n2. Deterministic sub-second finality — escrow actions (deposit, approve, release) almost instantly confirm hote hain.\n3. Native USDC — koi wrapping ya bridge nahi, isliye escrow funds ke liye koi bridge risk nahi.\n4. EVM-compatible — standard Solidity, wallets, aur tooling waise hi chalte hain.\n5. Circle (USDC banane wali company) ne ise stablecoin finance aur payments ke liye purpose-built banaya hai.\n\nPoora Why Arc page (features, comparison vs general-purpose chains, aur resources) app mein Sidebar > Why Arc par hai.\n\nUseful links:\n- Official site: https://www.arc.io\n- Documentation: https://docs.arc.network\n- Testnet explorer: https://testnet.arcscan.app\n- Faucet (free testnet USDC): https://faucet.circle.com\n- GitHub (Arc node): https://github.com/circlefin/arc-node",
+        },
+    },
+    {
+        "intent": "rescue_process",
+        "keywords": ["how does rescue work", "recover tokens", "rescue tokens", "safety center", "recover stuck", "get my tokens back", "recover usdc", "stuck tokens", "recovery", "rescue kaise"],
+        "answer": {
+            "en": "The Safety Center page handles token recovery:\n\n1. Open Safety Center in the sidebar.\n2. It shows the recoverable balance: contract balance minus funds locked in active escrows.\n3. If the balance is above the locked amount, the owner can rescue the excess to a verified destination address.\n4. The contract's rescueTokens function enforces the same rule on-chain — it can never touch funds inside an active escrow.\n\nThe Safety Center runs five live checks (owner, asset, escrow isolation, destination, contract state) and blocks the rescue if any check fails.",
+            "hi": "Safety Center page token recovery handle karta hai:\n\n1. Sidebar mein Safety Center kholen.\n2. Ye recoverable balance dikhata hai: contract balance minus active escrows mein locked funds.\n3. Agar balance locked amount se zyada hai, to owner excess ko verified destination address par rescue kar sakta hai.\n4. Contract ka rescueTokens function same rule on-chain enforce karta hai — active escrow ke andar ke funds kabhi touch nahi ho sakte.\n\nSafety Center paanch live checks chlata hai (owner, asset, escrow isolation, destination, contract state) aur koi check fail ho to rescue block kar deta hai.",
+        },
+    },
+    {
+        "intent": "refund_timing",
+        "keywords": ["refund kab aayega", "how long refund", "when refund", "refund pending", "refund time", "how long does refund take", "refund kab tak", "refund delay", "where is my refund"],
+        "answer": {
+            "en": "Refunds are on-chain transactions, so they settle within seconds once initiated:\n\n1. Cancel before funding: the full amount returns to the client's wallet instantly on confirmation.\n2. Claim After Expiry: the amount returns instantly after the claim transaction confirms.\n3. Dispute resolved to the client: the amount returns as soon as the arbitrator's resolution transaction confirms.\n\nIf you initiated the action but see no refund, check the transaction hash in your wallet history and confirm the escrow now shows Refunded.",
+            "hi": "Refunds on-chain transactions hain, isliye initiate hote hi seconds mein settle ho jate hain:\n\n1. Funding se pehle cancel: confirmation par poora amount turant client ke wallet mein wapas aa jata hai.\n2. Claim After Expiry: claim transaction confirm hote hi amount turant wapas aata hai.\n3. Dispute client ke favor mein resolve: arbitrator ke resolution transaction confirm hote hi amount wapas aa jata hai.\n\nAgar action initiate kiya par refund nahi dikha, to wallet history mein transaction hash check karein aur confirm karein ki escrow ab Refunded dikha raha hai.",
+        },
+    },
+    {
+        "intent": "contact_support",
+        "keywords": ["contact support", "talk to human", "report", "email", "complaint", "support team", "human", "contact person", "reach support", "report a bug", "help desk"],
+        "answer": {
+            "en": "For anything the Copilot cannot resolve:\n\n1. The Help Center (sidebar > Help Center) covers the full lifecycle, statuses, and FAQ.\n2. You can report a specific issue here in the chat with the escrow ID and the exact error message.\n3. On-chain data is transparent — every escrow and transaction can be verified on ArcScan (testnet.arcscan.app).\n\nFor a production deployment, reach the project maintainers through the GitHub repository linked in the README.",
+            "hi": "Jo cheezein Copilot resolve nahi kar sakta unke liye:\n\n1. Help Center (sidebar > Help Center) mein full lifecycle, statuses, aur FAQ hain.\n2. Specific issue ko escrow ID aur exact error message ke saath yahan chat mein report kar sakte hain.\n3. On-chain data transparent hai — har escrow aur transaction ArcScan (testnet.arcscan.app) par verify ki ja sakti hai.\n\nProduction deployment ke liye README mein linked GitHub repository se maintainers tak pahunch sakte hain.",
+        },
+    },
+    {
+        "intent": "data_refresh",
+        "keywords": ["data not updating", "feed not loading", "transactions not showing", "empty feed", "no transactions", "refresh data", "not real time", "data stuck", "feed empty", "activity not showing", "data refresh", "why no data"],
+        "answer": {
+            "en": "The dashboard refreshes automatically every 30 seconds by default. If data looks stale:\n\n1. Check Settings > Data Refresh — make sure Auto-refresh is not set to Off.\n2. The Activity Feed and Transactions show the latest on-chain events, but only if the escrow contract has had new activity.\n3. A brand-new chain with no escrow events will show an empty feed — that is correct.\n4. If the backend is down, the app falls back to reading the chain directly, which can be slower.\n\nYou can also press the refresh / reload in your browser, or switch Auto-refresh to Every 15s for faster updates.",
+            "hi": "Dashboard default har 30 second mein khud refresh hota hai. Agar data purana lag raha hai:\n\n1. Settings > Data Refresh check karein — Auto-refresh Off na ho.\n2. Activity Feed aur Transactions latest on-chain events dikhate hain, lekin tabhi jab escrow contract mein nayi activity hui ho.\n3. Nayi chain jisme koi escrow event nahi, usme empty feed dikhega — ye sahi hai.\n4. Agar backend down hai, to app seedha chain se padhta hai, jo thoda slow ho sakta hai.\n\nBrowser mein refresh/reload bhi kar sakte hain, ya faster updates ke liye Auto-refresh ko Every 15s par switch karein.",
+        },
+    },
 ]
 
 
-def _score(question: str, keywords: List[str]) -> int:
+def _score(question: str, keywords: List[str]) -> tuple[int, int]:
+    """Return (longest_keyword_len, hit_count). The longest match wins first:
+    a specific phrase ("why did you choose arc") beats generic words
+    ("network") that happen to appear in an earlier intent, and a specific
+    phrase ("usdc not approved") beats a generic word ("approve")."""
     hits = 0
+    longest = 0
     for kw in keywords:
         if kw in question:
             hits += 1
-    return hits
+            longest = max(longest, len(kw))
+    return longest, hits
 
 
 def match_intent(question: str) -> Optional[Dict[str, Any]]:
@@ -282,13 +392,13 @@ def match_intent(question: str) -> Optional[Dict[str, Any]]:
     if not q:
         return None
     best: Optional[Dict[str, Any]] = None
-    best_score = 0
+    best_score = (0, 0)
     for entry in KB:
         score = _score(q, entry["keywords"])
         if score > best_score:
             best_score = score
             best = entry
-    if best is None or best_score < RULE_THRESHOLD:
+    if best is None or best_score[0] < RULE_THRESHOLD:
         return None
     return best
 
@@ -308,8 +418,8 @@ def rule_based_answer(question: str, context: Dict[str, Any]) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # LLM fallback (Gemini free tier)
 # ---------------------------------------------------------------------------
-SYSTEM_PROMPT = """You are the senior support engineer and built-in AI assistant for ArcBridge, a
-trustless USDC escrow platform on the Arc Network testnet.
+SYSTEM_PROMPT = """You are Escrow Copilot — the senior support engineer and built-in AI assistant for ArcBridge, a
+trustless USDC escrow platform on the Arc Network testnet. You are trained on the full escrow lifecycle and can diagnose why funds are not released, why a transaction failed, and how to resolve disputes.
 
 Project facts (be precise — never invent contract behavior):
 - Chain: {chain_name} (Chain ID {chain_id}), RPC: {rpc_url}
@@ -342,6 +452,13 @@ Answering rules (critical):
 
 def _llm_prompt(question: str, history: List[Dict[str, str]], context: Dict[str, Any]) -> str:
     lines = [SYSTEM_PROMPT.format(**context)]
+    escrow_live = context.get("escrow_live")
+    if escrow_live:
+        lines.append(
+            "\nLIVE ON-CHAIN ESCROW DATA (fetched from the contract for the escrow "
+            "the user asked about — use this as ground truth; do not guess):\n"
+            + escrow_live
+        )
     lines.append(f"\nUser's detected language: {detect_language(question)}")
     lines.append("\nPrevious conversation:")
     for msg in history[-6:]:
@@ -437,6 +554,15 @@ async def answer(
             ),
             "source": "rules",
         }
+
+    # 0) Escrow-specific question with live on-chain data attached: prefer the
+    # LLM so the answer is grounded in the real escrow state (a generic rule
+    # answer would ignore the escrow the user asked about). Falls through to
+    # rules only if the LLM is unavailable.
+    if ctx.get("escrow_live") and GEMINI_API_KEY:
+        llm = await llm_answer(q, history or [], ctx)
+        if llm:
+            return {"answer": llm, "source": "llm"}
 
     # 1) Instant rule-based answer (language-matched).
     rule = rule_based_answer(q, ctx)

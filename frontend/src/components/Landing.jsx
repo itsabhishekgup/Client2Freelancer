@@ -229,6 +229,10 @@ function Landing({ onLaunch }) {
           </button>
           <br />
           ArcBridge Escrow · Built on Arc Network · Powered by Circle USDC
+          <span className="landing-footer-sep" aria-hidden="true"> · </span>
+          <button type="button" className="landing-footer-link" onClick={() => onLaunch?.("why-arc")}>
+            Why Arc?
+          </button>
         </footer>
       </div>
     </div>

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
@@ -13,8 +14,17 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from web3 import Web3
+from dotenv import load_dotenv
+
+# Load backend/.env (RPC, contract, GEMINI_API_KEY, ...) BEFORE importing
+# assistant, which reads GEMINI_API_KEY at module import time.
+load_dotenv()
 
 from assistant import answer as assistant_answer
+
+# Circle User-Controlled Wallets — imported lazily so the backend still boots
+# even if the SDK is not installed (configured vs not is handled inside).
+import circle_wallet
 
 ARC_RPC_URL = os.getenv("ARC_RPC_URL", "https://rpc.testnet.arc.network")
 CONTRACT_ADDRESS = Web3.to_checksum_address(
@@ -53,6 +63,44 @@ ABI = [
         "inputs": [],
         "outputs": [{"name": "", "type": "uint256"}],
         "stateMutability": "view",
+    },
+    {
+        "type": "function",
+        "name": "owner",
+        "inputs": [],
+        "outputs": [{"name": "", "type": "address"}],
+        "stateMutability": "view",
+    },
+    {
+        "type": "function",
+        "name": "arbitrator",
+        "inputs": [],
+        "outputs": [{"name": "", "type": "address"}],
+        "stateMutability": "view",
+    },
+    {
+        "type": "function",
+        "name": "lockedBalance",
+        "inputs": [],
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+    },
+    {
+        "type": "function",
+        "name": "maxEscrowsPerClient",
+        "inputs": [],
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+    },
+    {
+        "type": "event",
+        "name": "TokensRescued",
+        "anonymous": False,
+        "inputs": [
+            {"name": "token", "type": "address", "indexed": True},
+            {"name": "recipient", "type": "address", "indexed": True},
+            {"name": "amount", "type": "uint256", "indexed": False},
+        ],
     },
     {
         "type": "function",
@@ -219,6 +267,7 @@ EVENT_META = {
     "EscrowCancelled": {"label": "Escrow Cancelled", "tone": "cancelled", "icon": "↩️"},
     "DisputeRaised": {"label": "Dispute Raised", "tone": "disputed", "icon": "⚠️"},
     "DisputeResolved": {"label": "Dispute Resolved", "tone": "completed", "icon": "⚖️"},
+    "TokensRescued": {"label": "Recovery Executed", "tone": "completed", "icon": "🛟"},
 }
 
 
@@ -346,6 +395,15 @@ ESCROWS_CACHE_TTL = float(os.getenv("ESCROWS_CACHE_TTL", "15"))
 def _fetch_escrow(escrow_id: int) -> Optional[Dict[str, Any]]:
     raw = safe_call(lambda i=escrow_id: contract.functions.escrows(i).call())
     if raw is None:
+        return None
+    # Non-existent escrows come back from the contract as a zero-address
+    # placeholder — treat them as not found so callers (chat, /escrow/{id})
+    # don't present a fake "Waiting" escrow.
+    try:
+        client = raw[0] if isinstance(raw, (list, tuple)) else getattr(raw, "client", None)
+        if not client or str(client) == "0x" + "0" * 40:
+            return None
+    except Exception:
         return None
     try:
         return map_escrow(raw, escrow_id)
@@ -673,6 +731,90 @@ def escrows_list(
     }
 
 
+# In-memory cache for /safety: contract safety facts, refreshed on a TTL.
+_safety_cache: Dict[str, Any] = {"timestamp": 0.0, "data": None}
+SAFETY_CACHE_TTL = float(os.getenv("SAFETY_CACHE_TTL", "10"))
+
+
+def load_safety_summary(use_cache: bool = True) -> Dict[str, Any]:
+    """Real on-chain safety facts for the Safety Center. All reads are cheap
+    eth_call view reads (no get_logs), cached on a short TTL. Values that
+    cannot be verified are reported as None so the UI can show 'Not verified'
+    instead of inventing results."""
+    if use_cache and _safety_cache["data"] is not None:
+        return _safety_cache["data"]
+
+    owner = safe_call(lambda: contract.functions.owner().call(), None)
+    arbitrator = safe_call(lambda: contract.functions.arbitrator().call(), None)
+    locked_raw = safe_call(lambda: int(contract.functions.lockedBalance().call()), None)
+    escrow_count_raw = safe_call(lambda: int(contract.functions.escrowCount().call()), None)
+    max_per_client = safe_call(lambda: int(contract.functions.maxEscrowsPerClient().call()), None)
+    contract_usdc_raw = safe_call(lambda: int(usdc.functions.balanceOf(CONTRACT_ADDRESS).call()), None)
+
+    # Active escrows = funded and not yet released/refunded. Reuse the cached
+    # escrow list (same bounded approach as /escrows) so we never hammer the RPC.
+    escrows_data = load_all_escrows()
+    active_escrows = sum(
+        1
+        for e in escrows_data["escrows"]
+        if e.get("funded") and not e.get("released") and not e.get("refunded")
+    )
+
+    locked_ok = locked_raw is not None
+    balance_ok = contract_usdc_raw is not None
+    owner_ok = isinstance(owner, str) and owner != "0x" + "0" * 40
+
+    recoverable_wei = 0
+    if locked_ok and balance_ok:
+        recoverable_wei = max(0, contract_usdc_raw - locked_raw)
+
+    checks = {
+        # A real, non-zero owner address is set on the contract.
+        "owner_verified": bool(owner_ok),
+        # The contract enforces escrow isolation: only the USDC balance ABOVE
+        # lockedBalance can ever be rescued (enforced in rescueTokens).
+        "escrow_isolation": bool(locked_ok),
+        # The contract answered its view reads — it is reachable and readable.
+        "contract_readable": bool(escrow_count_raw is not None and owner_ok),
+        "chain_healthy": bool(state.healthy),
+    }
+
+    summary = {
+        "chain": {
+            "name": CHAIN_NAME,
+            "id": CHAIN_ID,
+            "latest_block": state.latest_block,
+            "healthy": state.healthy,
+            "synced_at": state.last_synced_at,
+        },
+        "contract": {
+            "address": CONTRACT_ADDRESS,
+            "owner": owner,
+            "owner_short": short(owner),
+            "arbitrator": arbitrator,
+            "arbitrator_short": short(arbitrator),
+            "escrow_count": escrow_count_raw,
+            "active_escrows": active_escrows,
+            "escrows_complete": bool(escrows_data["complete"]),
+            "max_escrows_per_client": max_per_client,
+            "locked_wei": str(locked_raw) if locked_raw is not None else None,
+            "locked": usdc_fmt(locked_raw),
+            "contract_usdc_wei": str(contract_usdc_raw) if contract_usdc_raw is not None else None,
+            "contract_usdc": usdc_fmt(contract_usdc_raw),
+            "recoverable_wei": str(recoverable_wei),
+            "recoverable": usdc_fmt(recoverable_wei),
+        },
+        "checks": checks,
+    }
+
+    # Cache only fully successful reads so a rate-limited RPC can't serve a
+    # misleading 'everything is 0/None' safety snapshot.
+    if all(v is not None for v in (owner, arbitrator, locked_raw, escrow_count_raw)) and balance_ok:
+        _safety_cache["timestamp"] = time.monotonic()
+        _safety_cache["data"] = summary
+    return summary
+
+
 class ChatMessage(BaseModel):
     role: str = "user"
     content: str = ""
@@ -683,15 +825,123 @@ class ChatRequest(BaseModel):
     history: Optional[List[ChatMessage]] = []
 
 
+class CircleLoginRequest(BaseModel):
+    email: str
+
+
+class CirclePinLoginRequest(BaseModel):
+    user_id: str
+
+
+class CircleWalletRequest(BaseModel):
+    user_token: str
+
+
+class CircleContractRequest(BaseModel):
+    user_token: str
+    wallet_id: str
+    action: str
+    args: List[Any] = []
+
+
+@app.get("/api/circle/config")
+def circle_config() -> Dict[str, Any]:
+    """Whether Circle Wallet is configured + the public app id (never the key)."""
+    return circle_wallet.config()
+
+
+@app.post("/api/circle/login")
+def circle_login(req: CircleLoginRequest) -> Dict[str, Any]:
+    """Start Circle email-OTP login. Returns userToken + challengeId."""
+    return circle_wallet.email_login(req.email)
+
+
+@app.post("/api/circle/pin-login")
+def circle_pin_login(req: CirclePinLoginRequest) -> Dict[str, Any]:
+    """Start Circle PIN-based login (no SMTP needed). Returns userToken +
+    encryptionKey for the web SDK's PIN setup / challenge UI."""
+    return circle_wallet.pin_login(req.user_id)
+
+
+@app.post("/api/circle/wallet")
+def circle_wallet_create(req: CircleWalletRequest) -> Dict[str, Any]:
+    """Create a user-controlled wallet on Arc Testnet."""
+    return circle_wallet.create_wallet(req.user_token)
+
+
+@app.post("/api/circle/wallets")
+def circle_wallets_list(req: CircleWalletRequest) -> Dict[str, Any]:
+    """List the user's existing Circle wallets."""
+    return circle_wallet.list_wallets(req.user_token)
+
+
+@app.post("/api/circle/contract")
+def circle_contract(req: CircleContractRequest) -> Dict[str, Any]:
+    """Create a contract-execution challenge for an escrow action."""
+    signature = circle_wallet.escrow_action_signature(req.action)
+    if not signature:
+        return {"ok": False, "error": f"Unknown escrow action: {req.action}"}
+    params: list = list(req.args or [])
+    # Only create_escrow takes an address; everything else needs raw ints.
+    if req.action.startswith("create"):
+        if params and params[0]:
+            params[0] = Web3.to_checksum_address(str(params[0]))
+    return circle_wallet.contract_execution(req.user_token, req.wallet_id, signature, params)
+
+
+@app.get("/safety")
+def safety() -> Dict[str, Any]:
+    """Real contract safety facts for the Safety Center page and the compact
+    dashboard card. No invented results: unverifiable values are None."""
+    return load_safety_summary()
+
+
+_ESCROW_ID_RE = re.compile(r"\bescrow\s*(?:id\s*)?#?\s*(\d+)", re.IGNORECASE)
+
+
+def _format_escrow_for_ai(data: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Human-readable one-paragraph summary of an escrow for the LLM prompt."""
+    if not data:
+        return None
+    yes_no = lambda v: "yes" if v else "no"
+    created = datetime.fromtimestamp(int(data.get("createdAt") or 0), tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    expires = datetime.fromtimestamp(int(data.get("expiresAt") or 0), tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    return (
+        f"Escrow #{data.get('id')} — current status: {data.get('status', 'unknown')}.\n"
+        f"- Client: {data.get('client_short')} ({data.get('client')})\n"
+        f"- Freelancer: {data.get('freelancer_short')} ({data.get('freelancer')})\n"
+        f"- Amount: {data.get('amount')}\n"
+        f"- Funded: {yes_no(data.get('funded'))}, Work submitted: {yes_no(data.get('workSubmitted'))}, "
+        f"Approved: {yes_no(data.get('approved'))}, Released: {yes_no(data.get('released'))}, "
+        f"Refunded: {yes_no(data.get('refunded'))}, Disputed: {yes_no(data.get('disputed'))}\n"
+        f"- Created: {created}, Expires: {expires}"
+    )
+
+
 @app.post("/api/chat")
 async def chat_endpoint(req: ChatRequest) -> Dict[str, Any]:
-    """Hybrid assistant: instant rule-based answers, Gemini LLM fallback."""
+    """Hybrid assistant: instant rule-based answers, Gemini LLM fallback.
+
+    If the user's question mentions an escrow ID ("escrow 3", "escrow id 42"),
+    fetch that escrow's live on-chain state and inject it into the AI context
+    so answers are grounded in real data."""
     context = {
         "chain_name": CHAIN_NAME,
         "chain_id": CHAIN_ID,
         "rpc_url": ARC_RPC_URL,
         "contract_address": CONTRACT_ADDRESS,
     }
+
+    m = _ESCROW_ID_RE.search(req.message)
+    if m:
+        escrow_id = int(m.group(1))
+        if escrow_id > 0:
+            data = _fetch_escrow(escrow_id)
+            context["escrow_live"] = _format_escrow_for_ai(data) or (
+                f"Escrow #{escrow_id} does not exist on the chain "
+                "(the contract returned no escrow for that ID)."
+            )
+
     history = [
         {"role": m.role, "content": m.content}
         for m in (req.history or [])

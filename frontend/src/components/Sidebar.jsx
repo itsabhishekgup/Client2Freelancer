@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { id: "create-escrow", icon: "➕", label: "Create Escrow" },
   { id: "my-escrows", icon: "📦", label: "My Escrows" },
   { id: "transactions", icon: "💸", label: "Transactions" },
+  { id: "safety-center", icon: "🛡️", label: "Safety Center" },
   { id: "help-center", icon: "❓", label: "Help Center" },
   { id: "settings", icon: "⚙️", label: "Settings" },
 ];
@@ -149,6 +150,20 @@ function Sidebar({ activeSection = "dashboard", onNavigate }) {
               <span>Help Center</span>
             </button>
 
+            <button
+              type="button"
+              className={`mobile-help-button whyarc-btn ${activeSection === "why-arc" ? "active" : ""}`}
+              onClick={() => {
+                onNavigate?.("why-arc");
+                closeMenu();
+              }}
+            >
+              <span className="sidebar-icon" aria-hidden="true">
+                ⚡
+              </span>
+              <span>Why Arc?</span>
+            </button>
+
             <div className="sidebar-footnote mobile-sidebar-footnote">
               <p>Arc Testnet</p>
               <strong>Powered by Circle</strong>
@@ -180,6 +195,19 @@ function Sidebar({ activeSection = "dashboard", onNavigate }) {
           );
         })}
       </nav>
+
+      <div className="sidebar-whyarc">
+        <button
+          type="button"
+          className={`sidebar-whyarc-btn ${activeSection === "why-arc" ? "active" : ""}`}
+          onClick={() => onNavigate?.("why-arc")}
+        >
+          <span className="sidebar-icon" aria-hidden="true">
+            ⚡
+          </span>
+          <span>Why Arc?</span>
+        </button>
+      </div>
 
       <div className="sidebar-footnote">
         <p>Arc Testnet</p>

@@ -36,6 +36,10 @@ export async function fetchHealth() {
   return requestJSON("/health");
 }
 
+export async function fetchSafety({ signal } = {}) {
+  return requestJSON("/safety", { signal });
+}
+
 export async function chatWithAssistant(message, history = []) {
   const response = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",

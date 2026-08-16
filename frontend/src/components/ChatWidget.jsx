@@ -3,9 +3,9 @@ import { chatWithAssistant } from "../lib/liveApi";
 
 const QUICK_REPLIES = [
   "How do I create an escrow?",
-  "How does dispute resolution work?",
+  "Why are my funds not released?",
   "How do I get a refund?",
-  "How do I connect my wallet?",
+  "How does dispute resolution work?",
 ];
 
 function BotIcon() {
@@ -122,14 +122,14 @@ export default function ChatWidget() {
       </button>
 
       {open && (
-        <div className="chat-panel" role="dialog" aria-label="ArcBridge assistant">
+        <div className="chat-panel" role="dialog" aria-label="Escrow Copilot">
           <div className="chat-head">
             <span className="chat-head-avatar" aria-hidden="true">
               <BotIcon />
             </span>
             <div className="chat-head-copy">
-              <strong>ArcBridge Support</strong>
-              <span>AI assistant · clear, accurate answers</span>
+              <strong>Escrow Copilot</strong>
+              <span>Trained on the full escrow lifecycle · clear, accurate answers</span>
             </div>
             <button
               type="button"
@@ -145,9 +145,10 @@ export default function ChatWidget() {
             {messages.length === 0 && !loading && (
               <div className="chat-welcome">
                 <p>
-                  Hello. I can help you with escrows, deposits, disputes, refunds,
-                  wallet setup, and network information — in English or Hindi.
-                  What would you like to know?
+                  Hello. I'm Escrow Copilot — trained on the full ArcBridge
+                  lifecycle. Ask me about creating escrows, deposits, disputes,
+                  refunds, wallet setup, or any error you run into, in English
+                  or Hindi.
                 </p>
                 <div className="chat-quick">
                   {QUICK_REPLIES.map((q) => (

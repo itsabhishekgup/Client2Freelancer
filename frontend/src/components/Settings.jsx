@@ -95,7 +95,7 @@ function Settings({
         <h4>Data Refresh</h4>
         <p className="settings-hint">
           Auto-refresh the escrow list, wallet balance, and activity feed on an interval
-          while the app is open.
+          while the app is open. On by default (every 30s).
         </p>
         <div className="settings-row">
           <span>Auto-refresh</span>

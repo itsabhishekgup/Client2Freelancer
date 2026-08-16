@@ -43,8 +43,8 @@ function EscrowsList({ escrows, onSelectEscrow }) {
         style={{
           display: "flex",
           flexWrap: "wrap",
-          gap: "10px",
-          marginTop: "14px",
+          gap: "8px",
+          marginTop: "10px",
         }}
       >
         <input
@@ -79,7 +79,7 @@ function EscrowsList({ escrows, onSelectEscrow }) {
       </div>
 
       {visible.length ? (
-        <div style={{ display: "grid", gap: "12px", marginTop: "14px" }}>
+        <div style={{ display: "grid", gap: "8px", marginTop: "10px" }}>
           {visible.map((escrow) => (
             <EscrowCard key={escrow.id} escrow={escrow} onSelect={onSelectEscrow} />
           ))}
@@ -93,7 +93,7 @@ function EscrowsList({ escrows, onSelectEscrow }) {
       )}
 
       {hasMore && (
-        <div style={{ textAlign: "center", marginTop: "14px" }}>
+        <div style={{ textAlign: "center", marginTop: "10px" }}>
           <button
             type="button"
             className="premium-action-btn premium-action-btn--load-more"
@@ -104,7 +104,7 @@ function EscrowsList({ escrows, onSelectEscrow }) {
         </div>
       )}
       {!hasMore && filtered.length > INITIAL_VISIBLE && (
-        <p className="section-copy" style={{ textAlign: "center", marginTop: "12px" }}>
+        <p className="section-copy" style={{ textAlign: "center", marginTop: "8px" }}>
           Showing all {filtered.length} escrows
         </p>
       )}

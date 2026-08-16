@@ -1,0 +1,676 @@
+/* ============================================================
+   ArcBridge — Safety Center
+   Loaded AFTER dark-theme.css so these win. Flat Linear-style
+   surfaces matching the current dashboard (hairline borders,
+   muted typography, restrained shadows).
+   ============================================================ */
+
+.safety-page {
+  max-width: 1000px;
+}
+
+/* ---- Status chips ---- */
+.safety-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.safety-chip-dot {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.safety-chip--healthy {
+  background: rgba(52, 211, 153, 0.1);
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.25);
+}
+
+.safety-chip--attention {
+  background: rgba(250, 204, 21, 0.08);
+  color: #d9a614;
+  border-color: rgba(250, 204, 21, 0.22);
+}
+
+.safety-chip--critical {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.28);
+}
+
+.safety-chip--notverified {
+  background: rgba(148, 163, 184, 0.08);
+  color: #9aa1ab;
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+/* ---- 1 · Contract safety stat grid ---- */
+.safety-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.safety-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 9px;
+  border: 1px solid #1e2126;
+  background: #0d0e10;
+  min-width: 0;
+}
+
+.safety-stat-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+.safety-stat-value {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #e8eaed;
+  word-break: break-word;
+}
+
+.safety-stat-sub {
+  font-size: 11.5px;
+  color: #7c838e;
+  line-height: 1.45;
+}
+
+.safety-stat-chip {
+  margin-top: 2px;
+}
+
+/* ---- 2 · Recovery cards ---- */
+.safety-empty {
+  padding: 16px;
+  border-radius: 9px;
+  border: 1px dashed #2a2e35;
+  background: #0d0e10;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.safety-empty strong {
+  color: #e2e5ea;
+  font-size: 13.5px;
+}
+
+.safety-empty p {
+  margin: 0;
+  color: #7c838e;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.safety-recovery-card {
+  border: 1px solid #1e2126;
+  border-radius: 10px;
+  background: #0d0e10;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.safety-recovery-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.safety-recovery-label {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+}
+
+.safety-recovery-amount {
+  display: block;
+  margin-top: 4px;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #f2f4f7;
+}
+
+.safety-recovery-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.safety-recovery-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.safety-recovery-actions .premium-action-btn {
+  border: none;
+  color: #fff;
+  padding: 9px 16px;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.safety-recovery-actions .premium-action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
+
+.safety-recovery-hint {
+  font-size: 12px;
+  color: #8a919c;
+  line-height: 1.5;
+}
+
+.safety-destination-input {
+  flex: 1 1 240px;
+  min-width: 0;
+  border: 1px solid #26292f;
+  border-radius: 7px;
+  background: #0d0e10;
+  color: #e2e5ea;
+  padding: 9px 13px;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.safety-destination-input:focus {
+  outline: none;
+  border-color: #5e6ad2;
+  box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.18);
+}
+
+/* Optional token check */
+.safety-other-token {
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1px solid #1c1f24;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.safety-other-token h4 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #e2e5ea;
+}
+
+.safety-other-token-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.safety-other-token-row input {
+  flex: 1 1 260px;
+  min-width: 0;
+  border: 1px solid #26292f;
+  border-radius: 7px;
+  background: #0d0e10;
+  color: #e2e5ea;
+  padding: 10px 13px;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.safety-other-token-row input:focus {
+  outline: none;
+  border-color: #5e6ad2;
+  box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.18);
+}
+
+.safety-other-token-msg {
+  margin: 0;
+  font-size: 12px;
+  color: #8a919c;
+}
+
+/* ---- 3 · Protection checks ---- */
+.safety-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.safety-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 11px 14px;
+  border-radius: 8px;
+  border: 1px solid #1e2126;
+  background: #0d0e10;
+}
+
+.safety-check-icon {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  margin-top: 1px;
+}
+
+.safety-check--ok .safety-check-icon {
+  background: rgba(52, 211, 153, 0.14);
+  color: #34d399;
+}
+
+.safety-check--fail .safety-check-icon {
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
+}
+
+.safety-check-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.safety-check-body strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e5ea;
+}
+
+.safety-check-body span {
+  font-size: 12px;
+  color: #7c838e;
+  line-height: 1.5;
+}
+
+.safety-check-flag {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #9aa1ab;
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+.safety-checks--small .safety-check {
+  padding: 9px 12px;
+}
+
+.safety-blocked-note {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.safety-blocked-note strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f87171;
+}
+
+.safety-blocked-note span {
+  font-size: 12.5px;
+  color: #c4c9d2;
+  line-height: 1.55;
+}
+
+/* ---- 4 · Review + 5 · Receipt ---- */
+.safety-review,
+.safety-receipt {
+  border-color: rgba(94, 106, 210, 0.35);
+}
+
+.safety-review-grid,
+.safety-receipt-grid {
+  display: flex;
+  flex-direction: column;
+}
+
+.safety-review-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.safety-review-actions .premium-action-btn {
+  border: none;
+  color: #fff;
+  padding: 9px 18px;
+  border-radius: 7px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.safety-review-actions .premium-action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
+
+.premium-action-btn--rescue {
+  background: #059669;
+}
+
+.premium-action-btn--rescue:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.safety-review-actions .help-cta {
+  border: 1px solid #26292f;
+  background: transparent;
+  color: #d4d7dc;
+  border-radius: 7px;
+  padding: 8px 14px;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.safety-explorer-link {
+  display: inline-block;
+  text-decoration: none;
+}
+
+/* ---- 6 · Audit log ---- */
+.safety-audit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.safety-audit-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #1e2126;
+  background: #0d0e10;
+}
+
+.safety-audit-icon {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  background: rgba(94, 106, 210, 0.12);
+}
+
+.safety-audit-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.safety-audit-body strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e5ea;
+}
+
+.safety-audit-body span {
+  font-size: 12px;
+  color: #7c838e;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.safety-audit-meta {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+/* ---- Dashboard compact card ---- */
+.safety-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+
+
+/* Header: vertically center the status badge with the title (the base
+   .summary-header uses flex-start, which leaves the badge hanging above the
+   text). On narrow columns the badge wraps to its own row instead of
+   squeezing the title/subtitle. */
+.safety-summary-card .summary-header {
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.safety-summary-card .summary-header > div {
+  min-width: 0;
+}
+
+.safety-summary-card .summary-header .safety-summary-state {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.safety-summary-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.safety-summary-state--healthy {
+  background: rgba(52, 211, 153, 0.1);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+.safety-summary-state--critical {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+}
+
+.safety-summary-dot {
+  font-size: 11px;
+  line-height: 1;
+}
+
+.safety-summary-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Full-width, centered CTA — matches the other side-column cards (e.g. the
+   "Open Help Center" button in the Need Help card). */
+.safety-summary-cta {
+  width: 100%;
+  text-align: center;
+  align-self: stretch;
+}
+
+.safety-summary-alert {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(250, 204, 21, 0.25);
+  background: rgba(250, 204, 21, 0.06);
+  font-size: 12px;
+  color: #e6c97a;
+  line-height: 1.5;
+}
+
+.safety-ok {
+  color: #34d399;
+}
+
+.safety-warn {
+  color: #f87171;
+}
+
+.safety-wallet-note {
+  background: #0d0e10;
+}
+
+/* ============================================================
+   Desktop side-column polish (>768px only)
+   Uniform, tighter rhythm across the four side cards (Wallet
+   Overview, ArcBridge Safety, Need Help, Escrow Summary) so the
+   dashboard stays compact and needs less scrolling. Mobile
+   (≤768px) and compact density keep their own rules — their
+   selectors have equal-or-higher relevance and come from later
+   mobile/compact layers, so nothing here leaks into them.
+   ============================================================ */
+@media (min-width: 769px) {
+  /* Tighter vertical rhythm between the side cards */
+  .dashboard-side {
+    gap: 14px;
+  }
+
+  /* Uniform card padding (22px -> 18px) */
+  .wallet-card,
+  .escrow-summary,
+  .quick-help-card,
+  .safety-summary-card {
+    padding: 18px;
+  }
+
+  /* Compact label/value rows across all side cards */
+  .wallet-item,
+  .summary-item {
+    padding: 9px 0;
+  }
+
+  /* Tighter card headers */
+  .wallet-header p,
+  .summary-header p {
+    margin-top: 2px;
+  }
+
+  .wallet-info {
+    margin-top: 10px;
+  }
+
+  .quick-help-card {
+    gap: 10px;
+  }
+
+  .safety-summary-card {
+    gap: 12px;
+  }
+
+  /* Slightly tighter overall grid gap */
+  .dashboard-grid {
+    gap: 20px;
+  }
+}
+
+/* ---- Mobile ---- */
+@media (max-width: 900px) {
+  .safety-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .safety-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .safety-stat {
+    padding: 12px 14px;
+  }
+
+  .safety-recovery-card {
+    padding: 14px;
+  }
+
+  .safety-recovery-amount {
+    font-size: 19px;
+  }
+
+  .safety-other-token-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .safety-other-token-row input {
+    min-height: 46px;
+    font-size: 16px; /* ≥16px prevents iOS auto-zoom on focus */
+  }
+
+  .safety-other-token-row .help-cta {
+    align-self: flex-start;
+  }
+
+  .safety-review-actions,
+  .safety-recovery-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .safety-review-actions button,
+  .safety-recovery-actions .premium-action-btn,
+  .safety-destination-input {
+    width: 100%;
+  }
+
+  .safety-audit-meta {
+    display: none;
+  }
+}

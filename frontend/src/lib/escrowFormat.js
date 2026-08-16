@@ -18,6 +18,7 @@ export const ACTIVITY_META = {
   EscrowCancelled: { label: "Escrow Cancelled", tone: "cancelled", icon: "↩️" },
   DisputeRaised: { label: "Dispute Raised", tone: "disputed", icon: "⚠️" },
   DisputeResolved: { label: "Dispute Resolved", tone: "completed", icon: "⚖️" },
+  TokensRescued: { label: "Recovery Executed", tone: "completed", icon: "🛟" },
 };
 
 export function shortenAddress(address) {

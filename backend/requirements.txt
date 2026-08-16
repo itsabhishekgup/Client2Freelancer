@@ -6,3 +6,4 @@ python-dotenv==1.0.1
 # dev / tests
 pytest==8.3.5
 httpx==0.28.1
+circle-user-controlled-wallets==9.6.0

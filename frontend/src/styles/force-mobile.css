@@ -441,6 +441,18 @@ html.force-mobile body {
     padding: 18px 16px;
   }
 
+/* ===== dark-theme.css — @media (max-width: 768px) ===== */
+  html.force-mobile .whyarc-grid {
+    grid-template-columns: 1fr;
+  }
+  html.force-mobile .whyarc-compare-head,
+  html.force-mobile .whyarc-compare-row {
+    grid-template-columns: 96px 1fr;
+  }
+  html.force-mobile .whyarc-compare-general {
+    display: none;
+  }
+
 /* ===== dark-theme.css — @media (max-width: 900px) ===== */
   html.force-mobile .showcase-grid {
     grid-template-columns: 1fr;
@@ -870,6 +882,49 @@ html.force-mobile body {
   }
   html.force-mobile .escrow-modal-head {
     flex-wrap: wrap;
+  }
+
+/* ===== safety-center.css — @media (max-width: 900px) ===== */
+  html.force-mobile .safety-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+/* ===== safety-center.css — @media (max-width: 768px) ===== */
+  html.force-mobile .safety-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  html.force-mobile .safety-stat {
+    padding: 12px 14px;
+  }
+  html.force-mobile .safety-recovery-card {
+    padding: 14px;
+  }
+  html.force-mobile .safety-recovery-amount {
+    font-size: 19px;
+  }
+  html.force-mobile .safety-other-token-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  html.force-mobile .safety-other-token-row input {
+    min-height: 46px;
+    font-size: 16px;
+  }
+  html.force-mobile .safety-other-token-row .help-cta {
+    align-self: flex-start;
+  }
+  html.force-mobile .safety-review-actions,
+  html.force-mobile .safety-recovery-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  html.force-mobile .safety-review-actions button,
+  html.force-mobile .safety-recovery-actions .premium-action-btn,
+  html.force-mobile .safety-destination-input {
+    width: 100%;
+  }
+  html.force-mobile .safety-audit-meta {
+    display: none;
   }
 
 /* --- Force-mobile fixes that can't come from media blocks ---
