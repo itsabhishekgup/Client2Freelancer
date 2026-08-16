@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "./styles/globals.css";
 import "./styles/dashboard.css";
 import "./styles/dark-theme.css";
+import "./styles/force-mobile.css"; // mobile-browser "Desktop site" mode fix
 
 import Landing from "./components/Landing";
 import Navbar from "./components/Navbar";
@@ -10,6 +11,8 @@ import Sidebar from "./components/Sidebar";
 import Dashboard from "./components/Dashboard";
 import HelpCenter from "./components/HelpCenter";
 import AnalyticsPanel from "./components/AnalyticsPanel";
+import ForceMobileBanner from "./components/ForceMobileBanner";
+import ChatWidget from "./components/ChatWidget";
 
 function App() {
   const [view, setView] = useState("landing"); // "landing" | "app"
@@ -32,6 +35,19 @@ function App() {
   const [showActivityFeed, setShowActivityFeed] = useState(
     () => localStorage.getItem("arcbridge-show-feed") !== "0",
   );
+  const [forceMobile, setForceMobile] = useState(
+    () => localStorage.getItem("arcbridge-force-mobile") !== "0",
+  );
+
+  // Live-switch the force-mobile class from the Settings toggle (no reload).
+  // On a real desktop / normal mobile this is a no-op by design.
+  const handleSetForceMobile = (value) => {
+    setForceMobile(value);
+    localStorage.setItem("arcbridge-force-mobile", value ? "1" : "0");
+    if (typeof window !== "undefined" && window.__arcApplyForceMobile) {
+      window.__arcApplyForceMobile(value);
+    }
+  };
 
   useEffect(() => {
     document.documentElement.dataset.accent = accent;
@@ -86,14 +102,23 @@ function App() {
     setDefaultExpiryDays,
     showActivityFeed,
     setShowActivityFeed,
+    forceMobile,
+    setForceMobile: handleSetForceMobile,
   };
 
   if (view === "landing") {
-    return <Landing onLaunch={handleLaunch} />;
+    return (
+      <>
+        <Landing onLaunch={handleLaunch} />
+        <ForceMobileBanner />
+        <ChatWidget />
+      </>
+    );
   }
 
   return (
-    <div className="app-shell">
+    <>
+      <div className="app-shell">
       <Navbar onNavigate={handleNavigate} />
 
       <div className="app-layout">
@@ -154,7 +179,10 @@ function App() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+      <ForceMobileBanner />
+      <ChatWidget />
+    </>
   );
 }
 

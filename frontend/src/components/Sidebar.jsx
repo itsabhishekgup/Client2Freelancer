@@ -10,15 +10,21 @@ const NAV_ITEMS = [
   { id: "settings", icon: "⚙️", label: "Settings" },
 ];
 
+const isForceMobile = () =>
+  typeof document !== "undefined" &&
+  document.documentElement.classList.contains("force-mobile");
+
 function Sidebar({ activeSection = "dashboard", onNavigate }) {
   const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth <= 768 : false
+    typeof window !== "undefined"
+      ? window.innerWidth <= 768 || isForceMobile()
+      : false
   );
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
+      setIsMobile(window.innerWidth <= 768 || isForceMobile());
     };
 
     handleResize();

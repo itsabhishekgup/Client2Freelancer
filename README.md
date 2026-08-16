@@ -27,6 +27,7 @@ ArcBridge is a full-stack escrow protocol that lets clients and freelancers tran
 - **`GET /live`** — wallet summary, chain state, recent activity events
 - **`GET /escrow/{id}`** — single escrow detail
 - **`GET /escrows`** — paginated list (`limit`/`offset`) with **status filter** + **search** by id/client/freelancer
+- **`POST /api/chat`** — hybrid support assistant: instant rule-based answers + optional Gemini AI fallback
 - Background **poller** keeps a cached view of chain state (no cold-start latency), 15s TTL cache, partial-read safety on RPC rate-limits
 
 ### Frontend (React + Vite)
@@ -36,6 +37,7 @@ ArcBridge is a full-stack escrow protocol that lets clients and freelancers tran
 - ⚙️ **Settings modal** — accent colors, auto-refresh, compact density, default expiry duration, feed toggle
 - 💸 **Full escrow actions** — create, cancel, dispute, resolve (per-role buttons)
 - 🔔 **Toast system** with tx-hash explorer links + pending-confirmation states
+- 🤖 **AI support assistant** — floating chat widget (Hinglish/English), instant FAQ answers, Gemini AI for anything else
 
 ---
 
@@ -99,6 +101,8 @@ npm run dev            # http://localhost:5173
 | `POLL_SECONDS` | `8` | Poller interval |
 | `BACKFILL_BLOCKS` | `20000` | Event backfill window |
 | `ESCROWS_CACHE_TTL` | `15` | List cache TTL (s) |
+| `GEMINI_API_KEY` | _(empty)_ | Free Gemini API key for AI assistant fallback (optional) |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model used by the assistant |
 
 ### Frontend (`frontend/.env`)
 | Variable | Purpose |
@@ -108,6 +112,31 @@ npm run dev            # http://localhost:5173
 | `VITE_RPC_URL` | RPC for direct contract reads |
 | `VITE_CONTRACT_ADDRESS` | Escrow contract address |
 | `VITE_USDC_ADDRESS` | USDC token address |
+
+---
+
+## 🤖 AI Assistant (optional)
+
+The floating **🤖 chat widget** (bottom-right) is a hybrid support bot:
+
+1. **Instant rules** — a curated knowledge base answers the common questions
+   (escrow lifecycle, dispute/cancel/refund, wallet, gas, statuses, settings…)
+   in Hinglish/English. Works with **zero setup, no API key**, even offline.
+2. **Gemini fallback** — questions the rules can't answer go to **Gemini 2.5
+   Flash** (free tier) for real AI responses.
+
+Enable the AI part:
+
+```bash
+# 1. Get a free key: https://aistudio.google.com/app/apikey
+# 2. Put it in backend/.env (copy from .env.example)
+GEMINI_API_KEY=your-key-here
+# 3. Restart the backend
+cd backend && python -m uvicorn main:app --reload --port 8000
+```
+
+Without a key the bot still answers every FAQ instantly and politely points
+elsewhere for anything custom — the app never breaks because of the AI part.
 
 ---
 

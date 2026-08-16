@@ -11,7 +11,10 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from web3 import Web3
+
+from assistant import answer as assistant_answer
 
 ARC_RPC_URL = os.getenv("ARC_RPC_URL", "https://rpc.testnet.arc.network")
 CONTRACT_ADDRESS = Web3.to_checksum_address(
@@ -668,3 +671,31 @@ def escrows_list(
         "offset": offset,
         "synced_at": state.last_synced_at,
     }
+
+
+class ChatMessage(BaseModel):
+    role: str = "user"
+    content: str = ""
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: Optional[List[ChatMessage]] = []
+
+
+@app.post("/api/chat")
+async def chat_endpoint(req: ChatRequest) -> Dict[str, Any]:
+    """Hybrid assistant: instant rule-based answers, Gemini LLM fallback."""
+    context = {
+        "chain_name": CHAIN_NAME,
+        "chain_id": CHAIN_ID,
+        "rpc_url": ARC_RPC_URL,
+        "contract_address": CONTRACT_ADDRESS,
+    }
+    history = [
+        {"role": m.role, "content": m.content}
+        for m in (req.history or [])
+        if m.content.strip()
+    ]
+    result = await assistant_answer(req.message, history, context)
+    return {"answer": result["answer"], "source": result["source"]}

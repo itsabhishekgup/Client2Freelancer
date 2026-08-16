@@ -10,6 +10,70 @@
     />
     <meta name="theme-color" content="#0a0b0d" />
     <title>ArcBridge — Secure USDC Escrow Platform</title>
+    <script>
+      // Mobile browser "Desktop site" mode forces a ~980px layout viewport and
+      // ignores the width=device-width meta. On a phone that makes the app fall
+      // back to desktop CSS (everything tiny/broken). Detect it here, before
+      // first paint, and flag <html class="force-mobile"> so force-mobile.css
+      // can re-apply the mobile layout. Real desktop is never affected:
+      // a desktop has no touch screen or its window is narrower than the screen.
+      (function () {
+        try {
+          var root = document.documentElement;
+
+          function isDesktopModeOnPhone() {
+            var touch =
+              "ontouchstart" in window || (navigator.maxTouchPoints || 0) > 0;
+            var s = window.screen ? window.screen.width : 0;
+            return touch && s > 0 && s <= 600 && window.innerWidth > s + 100;
+          }
+
+          // Add/remove the force-mobile class + scale vars. Never forces on a
+          // real desktop or normal mobile — only phone + Desktop-site mode.
+          function applyForceMobile(enabled) {
+            if (!isDesktopModeOnPhone()) {
+              root.classList.remove("force-mobile");
+              root.style.removeProperty("--fm-k");
+              root.style.removeProperty("--fm-w");
+              return;
+            }
+            var s = window.screen ? window.screen.width : 0;
+            var i = window.innerWidth;
+            if (enabled) {
+              root.classList.add("force-mobile");
+              if (s > 0) {
+                root.style.setProperty("--fm-k", String(i / s));
+                root.style.setProperty("--fm-w", String(s));
+              }
+            } else {
+              root.classList.remove("force-mobile");
+              root.style.removeProperty("--fm-k");
+              root.style.removeProperty("--fm-w");
+            }
+          }
+
+          // Exposed so the Settings toggle can switch live without a reload.
+          window.__arcApplyForceMobile = applyForceMobile;
+
+          if (isDesktopModeOnPhone()) {
+            var pref = "1";
+            try {
+              pref = localStorage.getItem("arcbridge-force-mobile") || "1";
+            } catch (e) {
+              /* ignore */
+            }
+            if (pref !== "0") applyForceMobile(true);
+          }
+
+          // Keep the scale factors correct across rotation / resize.
+          window.addEventListener("resize", function () {
+            if (root.classList.contains("force-mobile")) applyForceMobile(true);
+          });
+        } catch (e) {
+          /* never block first paint */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

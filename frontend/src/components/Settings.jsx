@@ -35,6 +35,8 @@ function Settings({
   setDefaultExpiryDays,
   showActivityFeed,
   setShowActivityFeed,
+  forceMobile,
+  setForceMobile,
 }) {
   const [copied, setCopied] = useState("");
 
@@ -165,6 +167,27 @@ function Settings({
             aria-checked={showActivityFeed}
             className={`toggle-switch ${showActivityFeed ? "toggle-switch--on" : ""}`}
             onClick={() => setShowActivityFeed(!showActivityFeed)}
+          >
+            <span className="toggle-knob" />
+          </button>
+        </div>
+      </div>
+
+      <div className="settings-group">
+        <h4>Mobile — Desktop Site Mode</h4>
+        <p className="settings-hint">
+          When your phone&apos;s browser is in &quot;Desktop site&quot; mode, this keeps the
+          optimized mobile layout (with the bottom notice). Turn it off to see the real
+          desktop layout in that mode instead.
+        </p>
+        <div className="settings-row">
+          <span>Force mobile layout</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={forceMobile}
+            className={`toggle-switch ${forceMobile ? "toggle-switch--on" : ""}`}
+            onClick={() => setForceMobile(!forceMobile)}
           >
             <span className="toggle-knob" />
           </button>
