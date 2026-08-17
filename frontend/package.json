@@ -11,8 +11,9 @@
     "gen:force-mobile": "node scripts/gen-force-mobile.mjs"
   },
   "dependencies": {
+    "@circle-fin/adapter-ethers-v6": "^1.10.1",
+    "@circle-fin/bridge-kit": "^1.13.0",
     "@reown/appkit": "^1.8.23",
-    "@circle-fin/w3s-pw-web-sdk": "^1.1.11",
     "@reown/appkit-adapter-wagmi": "^1.8.23",
     "@tanstack/react-query": "^5.101.4",
     "ethers": "^6.17.0",

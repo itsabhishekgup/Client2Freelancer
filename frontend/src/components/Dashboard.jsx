@@ -19,6 +19,7 @@ import {
 } from "../lib/escrowFormat";
 import ActivityFeed from "./ActivityFeed";
 import CreateEscrow from "./CreateEscrow";
+import FundFromAnyChain from "./FundFromAnyChain";
 import SafetySummaryCard from "./SafetySummaryCard";
 import EscrowDetailModal from "./EscrowDetailModal";
 import EscrowsList from "./EscrowsList";
@@ -58,7 +59,6 @@ function Dashboard(props) {
     loading: false,
   });
   const [activityItems, setActivityItems] = useState([]);
-  const [circleWallet, setCircleWallet] = useState(null);
   const [recentEscrows, setRecentEscrows] = useState([]);
   const [summaryEscrow, setSummaryEscrow] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -586,7 +586,11 @@ function Dashboard(props) {
               setCurrentStep={handleSetCurrentStep}
               onBlockchainUpdate={triggerBlockchainRefresh}
               defaultExpiryDays={defaultExpiryDays}
-              circleWallet={circleWallet}
+            />
+
+            <FundFromAnyChain
+              escrowId={resolvedEscrowId ?? ""}
+              onBlockchainUpdate={triggerBlockchainRefresh}
             />
           </section>
 
@@ -685,7 +689,7 @@ function Dashboard(props) {
         </section>
 
         <aside className="dashboard-side">
-          <WalletPanel wallet={wallet} onCircleChange={setCircleWallet} />
+          <WalletPanel wallet={wallet} />
 
           <SafetySummaryCard onNavigate={onNavigate} />
 

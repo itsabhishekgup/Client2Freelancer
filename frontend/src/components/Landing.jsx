@@ -203,6 +203,52 @@ function Landing({ onLaunch }) {
           </div>
         </section>
 
+        <section className="landing-cctp">
+          <div className="landing-cctp-head">
+            <span className="status-badge live">Powered by Circle CCTP</span>
+            <h2>Fund your escrow from any chain</h2>
+            <p>
+              Bridge USDC from Base Sepolia or Ethereum Sepolia straight into an escrow. Circle's
+              CCTP burns USDC on the source chain and mints it natively on Arc — no manual
+              bridging, no wrapped tokens, no liquidity pools.
+            </p>
+          </div>
+
+          <div className="landing-cctp-flow">
+            <div className="landing-cctp-node">
+              <span className="landing-cctp-node-icon" aria-hidden="true">🟦</span>
+              <strong>Base Sepolia</strong>
+              <small>Burn USDC</small>
+            </div>
+            <span className="landing-cctp-arrow" aria-hidden="true">→</span>
+            <div className="landing-cctp-node landing-cctp-node--mid">
+              <span className="landing-cctp-node-icon" aria-hidden="true">🔄</span>
+              <strong>CCTP Attestation</strong>
+              <small>~30-60 seconds</small>
+            </div>
+            <span className="landing-cctp-arrow" aria-hidden="true">→</span>
+            <div className="landing-cctp-node">
+              <span className="landing-cctp-node-icon" aria-hidden="true">⛓️</span>
+              <strong>Arc Testnet</strong>
+              <small>Mint USDC</small>
+            </div>
+            <span className="landing-cctp-arrow" aria-hidden="true">→</span>
+            <div className="landing-cctp-node landing-cctp-node--done">
+              <span className="landing-cctp-node-icon" aria-hidden="true">✅</span>
+              <strong>Escrow Funded</strong>
+              <small>Auto-deposit</small>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="landing-cta-primary"
+            onClick={() => onLaunch?.("create-escrow")}
+          >
+            Try It Now →
+          </button>
+        </section>
+
         <section className="landing-features">
           <div className="landing-feature">
             <h3>On-chain custody</h3>

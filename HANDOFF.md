@@ -140,3 +140,28 @@
 - **Frontend:** new `SafetyCenter.jsx` page (sidebar item 🛡️ between Transactions and Settings; `App.jsx` `isSafetyPage` branch) — 6 sections: (1) Contract Safety stat grid with 🟢/🟡/🔴/⚪ chips, (2) Recovery (real recoverable USDC + optional "check another token" ERC-20 balance read), (3) Recovery Protection — 5 live checks (owner / asset / isolation / destination / contract), (4) Rescue Confirmation panel, (5) Recovery Receipt (real tx hash + block + Arc Explorer link), (6) Security Event Log (real on-chain TokensRescued/FundsDeposited events + session audit trail). Rescue calls the real `rescueTokens(token, recipient)` via signer — owner enforced in UI AND in the tx path AND by the contract; no fake/simulated success. New compact `SafetySummaryCard.jsx` on the dashboard side column (Contract health / Protected Funds / Recoverable / Alerts + "View Safety Center →"). `safety-center.css` (Linear-flat style) added to the force-mobile generator list and regenerated.
 - **Verified live:** /safety returns real data (owner 0x36a7…0279, 2 escrows, checks all true); preview shows Safety Center page + dashboard card with correct statuses; backend 70/70 tests; build ✓ lint 0 ✓.
 - **Auto-refresh:** Safety Center page + dashboard card refetch /safety (+ live events for the page) every 20s and on tab re-focus; interval pauses when the tab is hidden. Silent refresh failures keep the last good snapshot (no loading flash, no fake "unavailable"); only the initial load shows the loading state / error. Verified live via backend access log (periodic `GET /safety` 200s).
+
+## 🗑️ Circle Wallet removed (2026-08-17)
+- **User request:** Circle Email+PIN connect hatao, saara Circle code bhi.
+- **Frontend removed:** `lib/circleWallet.js`, WalletPanel ka "Connect with Circle" (Email/PIN) section (ab sirf Reown overview + Disconnect), CreateEscrow se `runViaCircle` + Circle routing (create/deposit/submit/approve/release/cancel/dispute ab hamesha browser wallet se), Dashboard ka `circleWallet` state/prop, `@circle-fin/w3s-pw-web-sdk` package.json se, dark-theme.css ke `.wallet-circle-*` styles.
+- **Backend removed:** `circle_wallet.py`, `test_circle_wallet.py`, main.py ke `/api/circle/config|login|pin-login|wallet|wallets|contract` endpoints + request models, `circle-user-controlled-wallets` requirements se, `.env`/.env.example ke CIRCLE keys.
+- **Rakha (branding, Circle wallet code nahi):** "Powered by Circle" text, Why Arc page (Arc = Circle ka L1), Help Center mein Circle faucet mention, SVG `<circle>` shapes.
+- **README:** Circle Wallet section ko Reown-only connect section se replace kiya.
+- App ab **Reown-only** hai (purane version jaisa).
+
+## 🌉 CCTP "Fund From Any Chain" wizard (2026-08-17)
+- **Feature:** Bridge USDC from Base Sepolia / Ethereum Sepolia → Arc Testnet, phir auto-deposit into an escrow. **Powered by Circle CCTP + Bridge Kit** (`@circle-fin/bridge-kit@1.13.0`, `@circle-fin/adapter-ethers-v6@1.10.1` — no API key needed for bridge ops).
+- **`FundFromAnyChain.jsx`:** dashboard card (Create Escrow section ke neeche) — escrow ID (CreateEscrow se sync), source chain selector (Base Sepolia default | Ethereum Sepolia), amount, faucet link. Flow: wallet switch → Bridge Kit `kit.bridge()` (approve → burn → attestation → mint, signed by user's Reown wallet via `createEthersAdapterFromProvider`) → switch back to Arc → `approveUSDC` + `depositFunds(escrowId)` (existing contract, no changes). 5-step live stepper + receipt with real tx hashes (source + Arc explorers).
+- **Providers.jsx:** `baseSepolia` + `sepolia` added to AppKit networks (wallet chain switching supported).
+- **Verified:** build ✓ lint 0/0 ✓; preview — card renders, escrow ID syncs from CreateEscrow, chain selector + button state work. Stale vite optimizer cache cleared (removed `node_modules/.vite`) after removing old Circle SDK — `@circle-fin/w3s-pw-web-sdk` fully gone, only bridge-kit + adapters remain.
+- **Not tested:** live bridge tx (needs a funded Base Sepolia wallet with USDC + ETH gas — user step; faucet link included in UI).
+- **Why Arc page — Circle ecosystem section (2026-08-17):** "Built on the Circle ecosystem" — 4 cards (USDC native gas, CCTP cross-chain transfers, Gateway unified balance, Circle developer platform) + highlighted "🌉 Fund From Any Chain — powered by Circle CCTP" note with "Live in ArcBridge" badge. Landing page pe bhi "Fund your escrow from any chain" CCTP section (badge + 4-node flow mock Base Sepolia → Attestation → Arc → Escrow Funded + Try It Now CTA).
+
+## ✨ Escrow Copilot — markdown formatting + polish (completed)
+- **ChatWidget.jsx:** lightweight markdown renderer — `**bold**`, `*italic*`, `` `inline code` ``, `-`/`*`/`•` bullets (nested support), numbered lists with badges, `#` headings, `---` dividers, fenced ```code blocks``` (language tag stripped, monospace, scrollable)
+- **Scroll:** settle-scroll added (320ms after smooth scroll) so chips-row/layout shift doesn't leave thread 10px short of bottom
+- **Source badge:** INSTANT (rule) / AI (Gemini) per answer
+- **Bug fix:** generic `"create"` keyword in `create_escrow` hijacked any "create..." question → removed; off-topic questions now reach the LLM
+- **CSS:** new classes (`.chat-msg-num`, `.chat-msg-heading`, `.chat-inline-code`, `.chat-code`, `.chat-msg-hr`, `.chat-msg-bullet--nested`), force-mobile.css regenerated
+- **Tests:** 92/92 pass (new case: "create a python function..." → None/LLM)
+- **Verified live:** LLM compare-question renders bold + headings + bullets; rule answers render numbered badges + INSTANT badge

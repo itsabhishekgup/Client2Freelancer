@@ -22,10 +22,6 @@ load_dotenv()
 
 from assistant import answer as assistant_answer
 
-# Circle User-Controlled Wallets — imported lazily so the backend still boots
-# even if the SDK is not installed (configured vs not is handled inside).
-import circle_wallet
-
 ARC_RPC_URL = os.getenv("ARC_RPC_URL", "https://rpc.testnet.arc.network")
 CONTRACT_ADDRESS = Web3.to_checksum_address(
     os.getenv("CONTRACT_ADDRESS", "0x788bd809f93b8915f0dcd1ab3b3560355c8d0ff3")
@@ -823,70 +819,6 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     history: Optional[List[ChatMessage]] = []
-
-
-class CircleLoginRequest(BaseModel):
-    email: str
-
-
-class CirclePinLoginRequest(BaseModel):
-    user_id: str
-
-
-class CircleWalletRequest(BaseModel):
-    user_token: str
-
-
-class CircleContractRequest(BaseModel):
-    user_token: str
-    wallet_id: str
-    action: str
-    args: List[Any] = []
-
-
-@app.get("/api/circle/config")
-def circle_config() -> Dict[str, Any]:
-    """Whether Circle Wallet is configured + the public app id (never the key)."""
-    return circle_wallet.config()
-
-
-@app.post("/api/circle/login")
-def circle_login(req: CircleLoginRequest) -> Dict[str, Any]:
-    """Start Circle email-OTP login. Returns userToken + challengeId."""
-    return circle_wallet.email_login(req.email)
-
-
-@app.post("/api/circle/pin-login")
-def circle_pin_login(req: CirclePinLoginRequest) -> Dict[str, Any]:
-    """Start Circle PIN-based login (no SMTP needed). Returns userToken +
-    encryptionKey for the web SDK's PIN setup / challenge UI."""
-    return circle_wallet.pin_login(req.user_id)
-
-
-@app.post("/api/circle/wallet")
-def circle_wallet_create(req: CircleWalletRequest) -> Dict[str, Any]:
-    """Create a user-controlled wallet on Arc Testnet."""
-    return circle_wallet.create_wallet(req.user_token)
-
-
-@app.post("/api/circle/wallets")
-def circle_wallets_list(req: CircleWalletRequest) -> Dict[str, Any]:
-    """List the user's existing Circle wallets."""
-    return circle_wallet.list_wallets(req.user_token)
-
-
-@app.post("/api/circle/contract")
-def circle_contract(req: CircleContractRequest) -> Dict[str, Any]:
-    """Create a contract-execution challenge for an escrow action."""
-    signature = circle_wallet.escrow_action_signature(req.action)
-    if not signature:
-        return {"ok": False, "error": f"Unknown escrow action: {req.action}"}
-    params: list = list(req.args or [])
-    # Only create_escrow takes an address; everything else needs raw ints.
-    if req.action.startswith("create"):
-        if params and params[0]:
-            params[0] = Web3.to_checksum_address(str(params[0]))
-    return circle_wallet.contract_execution(req.user_token, req.wallet_id, signature, params)
 
 
 @app.get("/safety")

@@ -35,6 +35,71 @@ html.force-mobile body {
     max-width: none;
   }
 
+/* ===== index.css — @media (max-width: 768px) ===== */
+  html.force-mobile .chat-fab {
+    right: 12px;
+    bottom: 12px;
+    width: 50px;
+    height: 50px;
+    font-size: 21px;
+    box-shadow: 0 12px 26px rgba(37, 99, 235, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  }
+  html.force-mobile .chat-fab--open {
+    font-size: 20px;
+  }
+  html.force-mobile .chat-panel {
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: min(76vh, 560px);
+    border-radius: 18px 18px 0 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+  }
+  html.force-mobile .chat-head {
+    padding: 10px 14px;
+  }
+  html.force-mobile .chat-head-copy span {
+    font-size: 0.7rem;
+  }
+  html.force-mobile .chat-body {
+    padding: 12px;
+    gap: 9px;
+  }
+  html.force-mobile .chat-msg-bubble {
+    max-width: 86%;
+    padding: 8px 11px;
+    font-size: 0.78rem;
+  }
+  html.force-mobile .chat-msg-avatar {
+    width: 24px;
+    height: 24px;
+  }
+  html.force-mobile .chat-quick button {
+    font-size: 0.78rem;
+    padding: 8px 11px;
+  }
+  html.force-mobile .chat-input-row {
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  html.force-mobile .chat-input-row input {
+    font-size: 0.8rem;
+    padding: 9px 12px;
+  }
+  html.force-mobile .chat-send {
+    width: 38px;
+    height: 38px;
+  }
+  html.force-mobile .chat-chips {
+    padding: 0 12px 2px;
+  }
+  html.force-mobile .chat-chips button {
+    font-size: 0.7rem;
+    padding: 5px 10px;
+  }
+
 /* ===== dashboard.css — @media (max-width: 1000px) ===== */
   html.force-mobile .app-layout {
     flex-direction: column;
@@ -882,6 +947,23 @@ html.force-mobile body {
   }
   html.force-mobile .escrow-modal-head {
     flex-wrap: wrap;
+  }
+
+/* ===== dark-theme.css — @media (max-width: 640px) ===== */
+  html.force-mobile .fund-row {
+    grid-template-columns: 1fr;
+  }
+
+/* ===== dark-theme.css — @media (max-width: 720px) ===== */
+  html.force-mobile .landing-cctp-flow {
+    gap: 6px;
+  }
+  html.force-mobile .landing-cctp-node {
+    min-width: 100px;
+    padding: 10px 8px;
+  }
+  html.force-mobile .landing-cctp-arrow {
+    font-size: 12px;
   }
 
 /* ===== safety-center.css — @media (max-width: 900px) ===== */

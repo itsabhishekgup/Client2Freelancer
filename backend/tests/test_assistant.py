@@ -38,6 +38,11 @@ CONTEXT = {
         ("mainnet pe kab aayega", "production"),
         ("minimum amount kya hai", "min_amount"),
         ("why my funds not released", "funds_not_released"),
+        ("create a python function that formats a table", None),
+        ("why is my escrow not releasing funds even after work was submitted", "funds_not_released"),
+        ("my escrow is not releasing funds", "funds_not_released"),
+        ("funds stuck after dispute", "funds_not_released"),
+        ("I sent USDC to the wrong address", "wrong_address"),
         ("transaction failed", "tx_failed"),
         ("wrong network error", "wrong_network"),
         ("usdc not approved", "allowance"),
@@ -56,6 +61,9 @@ CONTEXT = {
 )
 def test_match_intent(question, expected_intent):
     entry = assistant.match_intent(question)
+    if expected_intent is None:
+        assert entry is None
+        return
     assert entry is not None
     assert entry["intent"] == expected_intent
 

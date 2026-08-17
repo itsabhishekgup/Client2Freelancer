@@ -7,10 +7,6 @@ import { CONTRACT_ADDRESS } from "../contracts/config";
 import { approveUSDC, getBrowserProvider } from "../contracts/wallet";
 import { useWalletBridge } from "../hooks/useWalletBridge";
 import { toast, updateToast } from "../lib/toast";
-import {
-  circleContractAction,
-  executeCircleChallenge,
-} from "../lib/circleWallet";
 
 const PUBLIC_RPC_URL = arcTestnet.rpcUrls.default.http[0];
 const TX_EXPLORER_URL = arcTestnet.blockExplorers?.default?.url ?? "";
@@ -58,7 +54,6 @@ function CreateEscrow({
   setCurrentStep = () => {},
   onBlockchainUpdate = () => {},
   defaultExpiryDays = 0,
-  circleWallet = null,
 }) {
   const [freelancer, setFreelancer] = useState("");
   const [amount, setAmount] = useState("");
@@ -154,54 +149,6 @@ function CreateEscrow({
     }
   };
 
-  // Run an escrow action through the Circle wallet (email login). The backend
-  // creates a contract-execution challenge and the user approves it on-device.
-  const runViaCircle = async (key, action, args, nextStep) => {
-    if (!circleWallet) return false;
-    setPendingAction(key);
-    const pendingToastId = toast("Waiting for Circle approval…", "pending", { duration: 0 });
-    try {
-      const req = await circleContractAction({
-        userToken: circleWallet.userToken,
-        walletId: circleWallet.walletId,
-        action,
-        args,
-      });
-      if (!req.ok) {
-        updateToast(pendingToastId, {
-          message: req.error || "Circle action failed",
-          type: "warning",
-          duration: 6000,
-        });
-        return true;
-      }
-      await executeCircleChallenge(
-        circleWallet.appId,
-        circleWallet.userToken,
-        circleWallet.encryptionKey,
-        req.challengeId,
-      );
-      updateToast(pendingToastId, {
-        message: "Transaction approved on Circle — confirming on-chain…",
-        type: "success",
-        duration: 7000,
-      });
-      if (nextStep) setCurrentStep(nextStep);
-      onBlockchainUpdate();
-      return true;
-    } catch (err) {
-      console.error(err);
-      updateToast(pendingToastId, {
-        message: err?.message || "Circle action failed",
-        type: "error",
-        duration: 6000,
-      });
-      return true;
-    } finally {
-      setPendingAction(null);
-    }
-  };
-
   const handleApproveUSDC = async () => {
     await withPending("approve", "Waiting for confirmation — Approve USDC…", async (toastId) => {
       if (!amount || Number(amount) <= 0) {
@@ -250,18 +197,6 @@ function CreateEscrow({
   };
 
   const createEscrow = async () => {
-    if (circleWallet) {
-      const amountRaw = parseUnits(amount.toString(), 6).toString();
-      const handled = await runViaCircle(
-        "create",
-        "createDeadline",
-        defaultExpiryDays > 0
-          ? [freelancer.trim(), amountRaw, (defaultExpiryDays * 24 * 60 * 60).toString()]
-          : [freelancer.trim(), amountRaw],
-        1,
-      );
-      if (handled) return;
-    }
     await withPending("create", "Waiting for confirmation — Create Escrow…", async (toastId) => {
       try {
         if (!freelancer || !amount || Number(amount) <= 0) {
@@ -333,15 +268,6 @@ function CreateEscrow({
   };
 
   const depositFunds = async () => {
-    if (circleWallet) {
-      const handled = await runViaCircle(
-        "deposit",
-        "deposit",
-        [escrowNum.toString()],
-        3,
-      );
-      if (handled) return;
-    }
     await withPending("deposit", "Waiting for confirmation — Deposit Funds…", async (toastId) => {
       try {
         if (!getBrowserProvider(walletProvider)) {
@@ -446,25 +372,15 @@ function CreateEscrow({
   };
 
   const submitWork = () =>
-    circleWallet
-      ? runViaCircle("submit", "submit", [escrowNum.toString()], 4)
-      : runAction("submit", "Work Submitted", (c) => c.submitWork(escrowNum), 4);
+    runAction("submit", "Work Submitted", (c) => c.submitWork(escrowNum), 4);
   const approveWork = () =>
-    circleWallet
-      ? runViaCircle("approve-work", "approve", [escrowNum.toString()], 5)
-      : runAction("approve-work", "Work Approved", (c) => c.approveWork(escrowNum), 5);
+    runAction("approve-work", "Work Approved", (c) => c.approveWork(escrowNum), 5);
   const releaseFunds = () =>
-    circleWallet
-      ? runViaCircle("release", "release", [escrowNum.toString()], 6)
-      : runAction("release", "Funds Released", (c) => c.releaseFunds(escrowNum), 6);
+    runAction("release", "Funds Released", (c) => c.releaseFunds(escrowNum), 6);
   const cancelEscrow = () =>
-    circleWallet
-      ? runViaCircle("cancel", "cancel", [escrowNum.toString()])
-      : runAction("cancel", "Escrow Cancelled", (c) => c.cancelEscrow(escrowNum));
+    runAction("cancel", "Escrow Cancelled", (c) => c.cancelEscrow(escrowNum));
   const disputeEscrow = () =>
-    circleWallet
-      ? runViaCircle("dispute", "dispute", [escrowNum.toString()])
-      : runAction("dispute", "Dispute Raised", (c) => c.disputeEscrow(escrowNum));
+    runAction("dispute", "Dispute Raised", (c) => c.disputeEscrow(escrowNum));
   const claimAfterExpiry = () =>
     runAction("claim", "Claimed After Expiry", (c) => c.claimAfterExpiry(escrowNum));
   const resolveDispute = (favorFreelancer) =>

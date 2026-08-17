@@ -144,53 +144,17 @@ elsewhere for anything custom — the app never breaks because of the AI part.
 
 ---
 
-## 💳 Circle Wallet (optional — email login)
+## 💳 Wallet connect
 
-ArcBridge supports **Circle User-Controlled Wallets** as a second connect
-option alongside the regular Reown/WalletConnect popup. Users log in with an
-email (OTP), get a non-custodial wallet on **Arc Testnet** (officially
-supported by Circle, `ARC-TESTNET`), and approve escrow actions on-device —
-no wallet extension or seed phrase needed.
+ArcBridge uses the **Reown (WalletConnect) modal** for wallet connections —
+users connect their own wallet (e.g. MetaMask-style injected wallets that
+support Arc Testnet, or WalletConnect). All escrow actions are signed from
+the connected wallet directly.
 
 ```bash
-# 1. Create a Circle Web3 Services account: https://console.circle.com
-# 2. Generate an API key (format: TEST_API_KEY:id:secret — keep the full string),
-#    register an app (get its App ID), and set up SMTP for email OTP
-#    (Developer Console → Settings → SMTP; without it email login returns
-#    error 155150 "SMTP server configuration is not found")
-# 3. Put them in backend/.env (copy from .env.example)
-CIRCLE_API_KEY=TEST_API_KEY:your-id:your-secret
-CIRCLE_ENTITY_SECRET=your-entity-secret
-CIRCLE_APP_ID=your-app-id
-# 4. Restart the backend
+# No extra config needed — the connect modal works out of the box.
 cd backend && python -m uvicorn main:app --reload --port 8000
 ```
-
-**Two login methods** (toggle in Wallet Overview):
-
-- **Email OTP** — needs SMTP configured in the Circle Console (error 155150
-  otherwise).
-- **PIN** — no SMTP needed; enter any unique user ID and set your PIN in the
-  Circle popup. Fastest path for demos / hackathons.
-
-How it works:
-
-1. **Wallet Overview → "Connect with Circle"** — choose Email or PIN. For
-   email, an OTP challenge is created by the backend (which holds the API key)
-   and approved on-device via the Web SDK. For PIN, the backend creates the
-   user + returns a userToken directly (no email involved).
-2. A wallet is created on Arc Testnet (or the existing one is reused) and its
-   address appears in the panel.
-3. Every escrow action (create, deposit, submit, approve, release, cancel,
-   dispute) **automatically uses the Circle wallet** once connected — the
-   backend creates a contract-execution challenge and the user approves it
-   in the SDK confirmation UI.
-4. The regular Reown connect flow still works side-by-side; a connected
-   Circle wallet just takes over the escrow actions.
-
-Without credentials the "Connect with Circle" panel shows a clear
-"not configured" hint and the app keeps working with the normal wallet flow —
-the Circle integration never breaks the app.
 
 ---
 

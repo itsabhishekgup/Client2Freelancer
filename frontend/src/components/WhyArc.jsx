@@ -92,6 +92,29 @@ const COMPARISON = [
   },
 ];
 
+const CIRCLE_INTEGRATIONS = [
+  {
+    icon: "💵",
+    title: "USDC native gas",
+    body: "Circle's USDC is the network's native currency — every fee, deposit, and payout settles in USDC with no wrapping or bridge hop.",
+  },
+  {
+    icon: "🔀",
+    title: "CCTP cross-chain transfers",
+    body: "Circle's Cross-Chain Transfer Protocol moves USDC natively between 20+ chains. ArcBridge uses it for 'Fund From Any Chain' — escrows funded straight from Base or Ethereum.",
+  },
+  {
+    icon: "🏦",
+    title: "Gateway unified balance",
+    body: "Circle Gateway consolidates cross-chain USDC into one Arc balance for instant, low-cost payouts across supported networks.",
+  },
+  {
+    icon: "🧰",
+    title: "Circle developer platform",
+    body: "Programmable wallets, Bridge Kit, and App Kit SDKs give builders a full toolkit — no custom bridge infrastructure required.",
+  },
+];
+
 const ARCBRIDGE_TABLE = [
   { label: "Network", value: "Arc Testnet" },
   { label: "Chain ID", value: "5042002" },
@@ -200,6 +223,36 @@ function WhyArc({ onNavigate }) {
                 <span className="whyarc-compare-general">{row.general}</span>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className="whyarc-circle">
+          <h4>Built on the Circle ecosystem</h4>
+          <p className="whyarc-compare-note">
+            Arc is Circle's Layer 1, so the full Circle platform is native here — and ArcBridge
+            plugs straight into it.
+          </p>
+          <div className="whyarc-grid">
+            {CIRCLE_INTEGRATIONS.map((c) => (
+              <div key={c.title} className="whyarc-card">
+                <span className="whyarc-card-icon" aria-hidden="true">
+                  {c.icon}
+                </span>
+                <div>
+                  <strong>{c.title}</strong>
+                  <p>{c.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="whyarc-cctp-note">
+            <span className="status-badge live">Live in ArcBridge</span>
+            <strong>🌉 Fund From Any Chain — powered by Circle CCTP</strong>
+            <p>
+              Bridge USDC from Base Sepolia or Ethereum Sepolia straight into an escrow: CCTP
+              burns on the source chain and mints natively on Arc, then ArcBridge auto-deposits
+              into the escrow. No manual bridging, no wrapped tokens, no liquidity pools.
+            </p>
           </div>
         </div>
 

@@ -6,6 +6,7 @@ const QUICK_REPLIES = [
   "Why are my funds not released?",
   "How do I get a refund?",
   "How does dispute resolution work?",
+  "What is CCTP?",
 ];
 
 function BotIcon() {
@@ -32,37 +33,107 @@ function SendIcon() {
   );
 }
 
-function formatText(text) {
-  return text.split("\n").map((rawLine, i) => {
-    const line = rawLine.trim();
-    if (!line) return <div className="chat-msg-gap" key={i} />;
+/* ---- lightweight markdown rendering ---- */
 
-    const isBullet = line.startsWith("•");
-    const content = isBullet ? line.slice(1).trim() : line;
-    const parts = content.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+function Inline({ text }) {
+  // Tokenize inline code, bold, italic in one pass (bold before italic so ** wins).
+  const re = /(`[^`]+`)|(\*\*[^*]+\*\*)|(\*[^*]+\*)/g;
+  const tokens = [];
+  let last = 0;
+  let m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) tokens.push({ t: "text", v: text.slice(last, m.index) });
+    if (m[1]) tokens.push({ t: "code", v: m[1].slice(1, -1) });
+    else if (m[2]) tokens.push({ t: "bold", v: m[2].slice(2, -2) });
+    else if (m[3]) tokens.push({ t: "italic", v: m[3].slice(1, -1) });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) tokens.push({ t: "text", v: text.slice(last) });
 
-    const rendered = parts.map((part, j) =>
-      part.startsWith("**") && part.endsWith("**") ? (
-        <strong key={j}>{part.slice(2, -2)}</strong>
-      ) : (
-        <span key={j}>{part}</span>
-      ),
-    );
-
-    if (isBullet) {
+  return tokens.map((tok, i) => {
+    if (tok.t === "code") {
       return (
-        <div className="chat-msg-bullet" key={i}>
-          <span className="chat-msg-bullet-dot" aria-hidden="true" />
-          {rendered}
-        </div>
+        <code key={i} className="chat-inline-code">
+          {tok.v}
+        </code>
       );
     }
+    if (tok.t === "bold") return <strong key={i}>{tok.v}</strong>;
+    if (tok.t === "italic") return <em key={i}>{tok.v}</em>;
+    return <span key={i}>{tok.v}</span>;
+  });
+}
+
+function parseLine(rawLine, key) {
+  const indentMatch = rawLine.match(/^\s*/);
+  const indent = indentMatch ? indentMatch[0].length : 0;
+  const line = rawLine.trim();
+  if (!line) return <div className="chat-msg-gap" key={key} />;
+
+  // Horizontal rule: --- / *** / ___
+  if (/^(-{3,}|\*{3,}|_{3,})$/.test(line)) {
+    return <div className="chat-msg-hr" key={key} aria-hidden="true" />;
+  }
+
+  // Headings: # / ## / ###
+  const h = line.match(/^(#{1,3})\s+(.*)/);
+  if (h) {
     return (
-      <div className="chat-msg-line" key={i}>
-        {rendered}
+      <div className={`chat-msg-heading chat-msg-heading--${h[1].length}`} key={key}>
+        <Inline text={h[2]} />
       </div>
     );
+  }
+
+  // Bullets: - * •
+  const b = line.match(/^[-*•]\s+(.*)/);
+  if (b) {
+    const nested = indent >= 2;
+    return (
+      <div className={`chat-msg-bullet${nested ? " chat-msg-bullet--nested" : ""}`} key={key}>
+        <span className="chat-msg-bullet-dot" aria-hidden="true" />
+        <Inline text={b[1]} />
+      </div>
+    );
+  }
+
+  // Numbered lists: 1. / 1)
+  const n = line.match(/^(\d{1,3})[.)]\s+(.*)/);
+  if (n) {
+    return (
+      <div className="chat-msg-num" key={key}>
+        <span className="chat-msg-num-idx" aria-hidden="true">
+          {n[1]}.
+        </span>
+        <Inline text={n[2]} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="chat-msg-line" key={key}>
+      <Inline text={line} />
+    </div>
+  );
+}
+
+function Markdown({ text }) {
+  // Split fenced code blocks (``` ... ```) from regular prose.
+  const segs = String(text).split(/```/);
+  const out = [];
+  segs.forEach((seg, i) => {
+    if (i % 2 === 1) {
+      const code = seg.replace(/^[a-zA-Z0-9_+-]*\n/, "").trimEnd();
+      out.push(
+        <pre key={`c${i}`} className="chat-code">
+          <code>{code}</code>
+        </pre>,
+      );
+    } else {
+      seg.split("\n").forEach((ln, j) => out.push(parseLine(ln, `${i}-${j}`)));
+    }
   });
+  return out;
 }
 
 export default function ChatWidget() {
@@ -71,12 +142,36 @@ export default function ChatWidget() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const listRef = useRef(null);
+  const endRef = useRef(null);
+  const inputRef = useRef(null);
 
+  // Instant jump to bottom when the panel opens (no animation on first paint).
   useEffect(() => {
-    if (listRef.current) {
+    if (open && listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
+  }, [open]);
+
+  // Smooth-scroll to the latest message whenever the thread grows or typing starts.
+  useEffect(() => {
+    if (!open) return;
+    const el = endRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, loading, open]);
+
+  // Layout can shift after the smooth scroll starts (chips row, badge, fonts),
+  // so settle at the true bottom once the animation has finished.
+  useEffect(() => {
+    if (!open || loading) return;
+    const t = setTimeout(() => {
+      const body = listRef.current;
+      if (body) {
+        body.scrollTop = body.scrollHeight;
+      }
+    }, 320);
+    return () => clearTimeout(t);
+  }, [messages, open, loading]);
 
   const send = async (raw) => {
     const text = (raw ?? input).trim();
@@ -109,6 +204,8 @@ export default function ChatWidget() {
     }
   };
 
+  const showChips = messages.length > 0 && !loading;
+
   return (
     <>
       <button
@@ -129,7 +226,7 @@ export default function ChatWidget() {
             </span>
             <div className="chat-head-copy">
               <strong>Escrow Copilot</strong>
-              <span>Trained on the full escrow lifecycle · clear, accurate answers</span>
+              <span>Clear answers, in English or Hindi</span>
             </div>
             <button
               type="button"
@@ -151,7 +248,7 @@ export default function ChatWidget() {
                   or Hindi.
                 </p>
                 <div className="chat-quick">
-                  {QUICK_REPLIES.map((q) => (
+                  {QUICK_REPLIES.slice(0, 4).map((q) => (
                     <button key={q} type="button" onClick={() => send(q)}>
                       {q}
                     </button>
@@ -167,7 +264,14 @@ export default function ChatWidget() {
                     <BotIcon />
                   </span>
                 )}
-                <div className="chat-msg-bubble">{formatText(msg.content)}</div>
+                <div className="chat-msg-bubble">
+                  <Markdown text={msg.content} />
+                  {msg.role === "assistant" && msg.source && (
+                    <span className={`chat-msg-source chat-msg-source--${msg.source}`}>
+                      {msg.source === "llm" ? "AI" : "Instant"}
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
 
@@ -183,7 +287,18 @@ export default function ChatWidget() {
                 </div>
               </div>
             )}
+            <div ref={endRef} />
           </div>
+
+          {showChips && (
+            <div className="chat-chips" aria-label="Suggested questions">
+              {QUICK_REPLIES.map((q) => (
+                <button key={q} type="button" onClick={() => send(q)}>
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="chat-input-row">
             <input
@@ -191,6 +306,7 @@ export default function ChatWidget() {
               value={input}
               placeholder="Type your question…"
               aria-label="Ask the assistant"
+              ref={inputRef}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") send();
