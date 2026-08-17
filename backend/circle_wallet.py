@@ -119,8 +119,13 @@ def pin_login(user_id: str) -> Dict[str, Any]:
         from circle.web3 import user_controlled_wallets as uw
 
         api = uw.PINAuthenticationApi(_client())
-        # create_user is idempotent — creating an existing user returns it.
-        api.create_user(create_user_request={"userId": user_id})
+        # create_user returns 409 when the user already exists — that's fine,
+        # we only need the userToken, which get_user_token returns either way.
+        try:
+            api.create_user(create_user_request={"userId": user_id})
+        except Exception as exc:  # noqa: BLE001
+            if "409" not in str(exc):
+                raise
         token_resp = api.get_user_token(user_token_request={"userId": user_id})
         data = token_resp.data
         return {
