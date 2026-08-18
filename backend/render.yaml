@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: arcbridge-backend
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: ARC_RPC_URL
+        value: "https://rpc.testnet.arc.network"
+      - key: CONTRACT_ADDRESS
+        value: "0x788BD809f93B8915F0dcd1ab3b3560355c8D0ff3"
+      - key: GEMINI_MODEL
+        value: "gemini-3.7-flash"
+      - key: GEMINI_API_KEY
+        value: "YOUR_GEMINI_API_KEY_HERE"
+      - key: CORS_ORIGINS
+        value: "https://your-app.vercel.app,http://localhost:5173"
