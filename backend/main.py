@@ -47,7 +47,7 @@ MAX_ESCROWS = max(SAMPLE_ESCROWS, int(os.getenv("MAX_ESCROWS", "100")))
 CORS_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
-        "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+        "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://[::1]:5173"
     ).split(",")
     if origin.strip()
 ]

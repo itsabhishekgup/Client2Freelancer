@@ -80,6 +80,14 @@ const FAQ = [
     q: "Is this real money?",
     a: "No — this runs on Arc Testnet with free testnet USDC. It demonstrates the full production flow (real transactions, real contract, real arbitration) so you can build on it safely.",
   },
+  {
+    q: "How do I fund an escrow from another chain?",
+    a: "Use the 'Fund From Any Chain' card on the Dashboard. It uses Circle CCTP to bridge USDC from Base Sepolia or Ethereum Sepolia directly into your escrow. Step 1: Create the escrow first. Step 2: Open the Fund From Any Chain card — your escrow ID auto-fills. Step 3: Select the source chain and enter the amount. Step 4: Click 'Bridge & Fund' — the wallet will ask you to sign. USDC burns on the source chain, Circle verifies the transfer (~30-60 sec), USDC mints on Arc, and is auto-deposited into your escrow. No manual bridging needed.",
+  },
+  {
+    q: "What is CCTP?",
+    a: "CCTP (Cross-Chain Transfer Protocol) is Circle's native USDC bridge. Instead of wrapped tokens or liquidity pools, CCTP burns USDC on the source chain and mints the same USDC 1:1 on the destination chain. ArcBridge uses it in the 'Fund From Any Chain' feature so you can fund an escrow from Base Sepolia or Ethereum Sepolia in one click.",
+  },
 ];
 
 const STATUS_LEGEND = [
@@ -182,6 +190,25 @@ function HelpCenter({ onNavigate }) {
             {openFaq === index && <div className="help-faq-answer">{item.a}</div>}
           </div>
         ))}
+      </div>
+
+      {/* How to fund — quick guide */}
+      <div className="help-faq">
+        <h4>How to fund your escrow</h4>
+        <div className="help-step">
+          <div className="help-step-title">Step 1 — Create the escrow</div>
+          <p>Go to Create Escrow, enter the freelancer's wallet address and the USDC amount. Confirm the transaction. The escrow is now created but not yet funded (status: Waiting).</p>
+        </div>
+        <div className="help-step">
+          <div className="help-step-title">Step 2 — Fund it</div>
+          <p>You have two options:</p>
+          <p><strong>Option A — Same chain (Arc Testnet):</strong> If you already have USDC on Arc, use the approve + deposit flow in the escrow detail view.</p>
+          <p><strong>Option B — From another chain (CCTP):</strong> Use the 'Fund From Any Chain' card on the Dashboard. Select Base Sepolia or Ethereum Sepolia as the source chain, enter the amount, and click 'Bridge & Fund'. CCTP bridges your USDC to Arc and deposits it into the escrow automatically.</p>
+        </div>
+        <div className="help-step">
+          <div className="help-step-title">Step 3 — Freelancer starts work</div>
+          <p>Once funded (status: Funded), the freelancer can submit their work. After submission, you approve and release the funds.</p>
+        </div>
       </div>
 
       {/* Status legend */}

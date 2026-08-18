@@ -82,6 +82,22 @@ KB: List[Dict[str, Any]] = [
         },
     },
     {
+        "intent": "cctp_bridge",
+        "keywords": ["bridge", "cctp", "cross chain", "another chain", "from base", "from ethereum", "fund from any chain", "bridge usdc", "how to bridge", "bridge kaise", "doosri chain", "other chain", "cross-chain transfer", "base se fund", "ethereum se fund", "fund from base", "fund from ethereum", "circle cctp", "bridge and fund"],
+        "answer": {
+            "en": "To fund an escrow from another chain using Circle CCTP:\n\n1. Create the escrow first (Create Escrow page).\n2. On the Dashboard, open the 'Fund From Any Chain' card.\n3. Your escrow ID auto-fills. Select the source chain (Base Sepolia or Ethereum Sepolia).\n4. Enter the USDC amount and click 'Bridge & Fund'.\n5. Your wallet will prompt you to sign on the source chain.\n6. USDC burns on the source chain, Circle verifies the transfer (attestation, ~30-60 seconds).\n7. USDC mints natively on Arc Testnet.\n8. The funds are auto-deposited into your escrow.\n\nYou need USDC + a small amount of ETH (for gas) on the source chain. Use the faucet link in the card to get testnet funds.",
+            "hi": "Doosri chain se escrow fund karne ke liye (Circle CCTP se):\n\n1. Pehle escrow create karen (Create Escrow page).\n2. Dashboard par 'Fund From Any Chain' card kholen.\n3. Escrow ID auto-fill ho jayega. Source chain chunen (Base Sepolia ya Ethereum Sepolia).\n4. USDC amount daalen aur 'Bridge & Fund' par click karen.\n5. Wallet aapko source chain par sign karne ke liye bolega.\n6. USDC source chain par burn hota hai, Circle transfer verify karta hai (attestation, ~30-60 second).\n7. USDC Arc Testnet par natively mint hota hai.\n8. Funds automatically escrow mein deposit ho jate hain.\n\nSource chain par USDC + thoda ETH (gas ke liye) chahiye. Card mein faucet link se testnet funds le sakte hain.",
+        },
+    },
+    {
+        "intent": "cctp_what",
+        "keywords": ["what is cctp", "cctp kya hai", "cctp kya hota hai", "cross-chain transfer protocol", "what does cctp mean", "circle cctp kya", "cctp explain", "cctp matlab"],
+        "answer": {
+            "en": "CCTP (Cross-Chain Transfer Protocol) is Circle's native USDC bridge. Instead of wrapped tokens or liquidity pools, CCTP burns USDC on the source chain and mints the same USDC 1:1 on the destination chain.\n\nIn ArcBridge:\n\n1. You pick a source chain (Base Sepolia or Ethereum Sepolia) in the Fund From Any Chain card.\n2. Your USDC is burned on the source chain and Circle verifies the transfer (attestation, ~30-60 seconds).\n3. Fresh USDC is minted on Arc and auto-deposited into the escrow.\n\nBecause it is a native 1:1 transfer, there is no bridge liquidity risk and no wrapped tokens - the escrow holds real USDC.",
+            "hi": "CCTP (Cross-Chain Transfer Protocol) Circle ka native USDC bridge hai. Wrapped tokens ya liquidity pools ki jagah, CCTP source chain par USDC ko burn karta hai aur destination chain par wahi USDC 1:1 mint karta hai.\n\nArcBridge mein:\n\n1. Fund From Any Chain card mein source chain chunen (Base Sepolia ya Ethereum Sepolia).\n2. Aapka USDC source chain par burn hota hai aur Circle transfer verify karta hai (attestation, ~30-60 second).\n3. Arc par naya USDC mint hokar automatically escrow mein deposit ho jata hai.\n\nNative 1:1 transfer hone ki wajah se koi bridge liquidity risk nahi aur koi wrapped tokens nahi - escrow mein asli USDC hota hai.",
+        },
+    },
+    {
         "intent": "submit_work",
         "keywords": ["submit", "work submit", "deliver", "kaam submit", "work done", "submit kaise", "submit kare", "mark submitted", "submit work", "mark complete", "finished the work"],
         "answer": {
