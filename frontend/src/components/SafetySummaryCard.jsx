@@ -75,7 +75,10 @@ function SafetySummaryCard({ onNavigate }) {
         <p className="section-copy">Reading safety state…</p>
       ) : error ? (
         <>
-          <p className="section-copy">Safety data is unavailable right now.</p>
+          <div className="safety-summary-offline">
+            <span className="safety-summary-offline-dot" aria-hidden="true">📡</span>
+            <span>Backend offline — safety data unavailable</span>
+          </div>
           <button
             type="button"
             className="help-cta safety-summary-cta"

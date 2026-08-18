@@ -674,3 +674,68 @@
     display: none;
   }
 }
+
+/* ---- Offline fallback box ---- */
+.safety-offline-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 20px;
+  text-align: center;
+}
+
+.safety-offline-icon {
+  font-size: 36px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.safety-offline-box strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e2e5ea;
+}
+
+.safety-offline-box p {
+  margin: 0;
+  font-size: 12.5px;
+  color: #7c838e;
+  line-height: 1.6;
+  max-width: 420px;
+}
+
+.safety-offline-box .help-cta {
+  margin-top: 6px;
+  border: 1px solid #26292f;
+  background: transparent;
+  color: #d4d7dc;
+  border-radius: 7px;
+  padding: 8px 18px;
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.safety-offline-box .help-cta:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ---- Summary card offline indicator ---- */
+.safety-summary-offline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.06);
+  font-size: 12px;
+  color: #9aa1ab;
+}
+
+.safety-summary-offline-dot {
+  font-size: 14px;
+  line-height: 1;
+}

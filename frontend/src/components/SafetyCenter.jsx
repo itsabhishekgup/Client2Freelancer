@@ -461,12 +461,31 @@ function SafetyCenter({ onNavigate }) {
               <h3>🛡️ Contract Safety</h3>
               <p>Live on-chain status</p>
             </div>
-            <span className="status-badge disputed">Unavailable</span>
+            <span className="status-badge disputed">Offline</span>
           </div>
-          <p className="section-copy">
-            {safetyError} Start the backend (cd backend && python -m uvicorn main:app --port 8000)
-            and reload to see live safety data.
-          </p>
+          <div className="safety-offline-box">
+            <div className="safety-offline-icon">📡</div>
+            <strong>Backend service is currently unreachable</strong>
+            <p>
+              Safety Center requires the backend API to read live contract data from the blockchain.
+              {window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
+                ? " The backend may not be deployed yet — contact the project owner to set it up."
+                : " Start it with: cd backend && python -m uvicorn main:app --port 8000"}
+            </p>
+            <button
+              type="button"
+              className="help-cta"
+              onClick={() => {
+                setLoading(true);
+                setSafetyError("");
+                fetchSafety({ signal: null })
+                  .then((data) => { setSafety(data); setLoading(false); })
+                  .catch((err) => { setSafetyError(err?.message || "Still unreachable."); setLoading(false); });
+              }}
+            >
+              Retry
+            </button>
+          </div>
         </section>
       )}
 
