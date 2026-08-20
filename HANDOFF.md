@@ -1,5 +1,28 @@
 # ArcBridge — Session Handoff (Aug 14, 2026)
 
+## 🧪 Frontend test suite added (Aug 20, 2026) — 79 tests
+
+**What was added:**
+- **Vitest + @testing-library/react + jsdom** (dev deps), `vite.config.js` test config (`jsdom`, globals, setup file, NODE_ENV=test define so React dev build/act works), `src/test/setup.js`.
+- `npm test` / `npm run test:watch` scripts; CI frontend job now runs `pnpm install --frozen-lockfile` → oxlint → **vitest** → build (switched from npm to pnpm since the repo now uses pnpm + `pnpm-lock.yaml`).
+
+**Test files (79 tests, 6 files):**
+- `src/lib/escrowFormat.test.js` — 36 tests: `shortenAddress`, `normalizeEscrowId`, `formatRelativeTime`, `formatAmount`, `getEscrowStatusMeta`, `getWorkflowStep`, `mapEscrowState`, STEPS/ACTIVITY_META.
+- `src/lib/liveApi.test.js` — 11 tests: URL building, query params, error handling, chat 30s abort timeout.
+- `src/contracts/wallet.test.js` — 13 tests: provider resolution, `readWalletSnapshot`, `approveUSDC` (spender+amount via ethers mock), `ensureArcNetwork` (already-on-Arc, switch, add-network 4902).
+- `src/components/EscrowCard.test.jsx` — 5 tests: render, click/Enter/Space select, disputed badge.
+- `src/components/EscrowDetailModal.test.jsx` — 7 tests: render, checklist fallback, timeline, Escape/overlay close, unfunded expiry `--`.
+- `src/components/CreateEscrow.test.jsx` — 4 tests: form fields, create-disabled-without-wallet, client role label, create-enabled-with-wallet.
+
+**Bug found & fixed by tests:**
+- `formatAmount(null/undefined/"")` returned `"0.00 USDC"` — now returns `"--"` (Dashboard/escrow cards showed fake zero amounts when amount missing).
+
+**Environment note:** React pinned to **19.0.0** (from 19.2.8) — React 19.1+ removed the `act` export that @testing-library/react 16.3 needs; 19.0.0 has it. App code uses only basic hooks (verified: no 19.2-only APIs), `npm run build` clean, oxlint 0 warnings.
+
+**Verified:** `npm test` → 79/79 pass · oxlint 0 warnings · `npm run build` clean.
+
+---
+
 ## 💡 Mint-step fix: use Circle's Forwarder (Arc relay) — REAL root cause found (Aug 20, 2026)
 
 **User's hypothesis was correct.** The mint step was failing not (only) from RPC rate-limits — the deeper issue is **Arc's native gas is USDC, and the mint tx was being submitted by the user's wallet, which needs USDC gas on Arc.** If the Arc wallet holds ~0 USDC (all USDC is on the source chain / bridged amount hasn't landed yet), the mint tx can't pay gas → "Network connection failed for Arc Testnet" (the adapter wraps the underlying gas/connection failure).

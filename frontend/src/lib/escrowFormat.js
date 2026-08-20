@@ -64,6 +64,7 @@ export function formatRelativeTime(timestampSeconds) {
 }
 
 export function formatAmount(amount) {
+  if (amount === null || amount === undefined || amount === "") return "--";
   try {
     return `${Number(formatUnits(amount ?? 0n, 6)).toFixed(2)} USDC`;
   } catch {

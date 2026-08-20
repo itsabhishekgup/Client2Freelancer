@@ -53,7 +53,7 @@ jobs:
         run: python -m pytest tests/ -v
 
   frontend:
-    name: Frontend (Vite + oxlint)
+    name: Frontend (Vite + oxlint + vitest)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -61,17 +61,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Lint
         run: npx oxlint src
+
+      - name: Test
+        run: npx vitest run
 
       - name: Build
         run: npm run build
