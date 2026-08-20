@@ -2,47 +2,68 @@ from __future__ import annotations
 
 import asyncio
 import os
+import random
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from threading import Lock
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from web3 import Web3
 from dotenv import load_dotenv
 
 # Load backend/.env (RPC, contract, GEMINI_API_KEY, ...) BEFORE importing
-# assistant, which reads GEMINI_API_KEY at module import time.
-load_dotenv()
+# assistant, which reads GEMINI_API_KEY at module import time. Resolve the path
+# relative to this file so the backend works regardless of the launch CWD.
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(_BACKEND_DIR, ".env"))
 
 from assistant import answer as assistant_answer
 
+
+def _env_int(name: str, default: int, minimum: int = 0) -> int:
+    """Parse an integer env var, falling back to the default on missing or
+    invalid values so a typo can't crash the server at import time."""
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        print(f"[config] invalid {name}={raw!r}, using default {default}", flush=True)
+        return default
+    return max(minimum, value)
+
+
 ARC_RPC_URL = os.getenv("ARC_RPC_URL", "https://rpc.testnet.arc.network")
 CONTRACT_ADDRESS = Web3.to_checksum_address(
-    os.getenv("CONTRACT_ADDRESS", "0x788bd809f93b8915f0dcd1ab3b3560355c8d0ff3")
+    os.getenv("CONTRACT_ADDRESS", "0xa12b4775b2eb4741aabbb8e2aade41e9ad0665e4")
 )
 USDC_ADDRESS = Web3.to_checksum_address(
     os.getenv("USDC_ADDRESS", "0x3600000000000000000000000000000000000000")
 )
 CHAIN_NAME = os.getenv("CHAIN_NAME", "Arc Testnet")
-CHAIN_ID = int(os.getenv("CHAIN_ID", "5042002"))
-POLL_SECONDS = max(3, int(os.getenv("POLL_SECONDS", "8")))
-RECENT_BLOCKS = max(1, int(os.getenv("RECENT_BLOCKS", "2000")))
+CHAIN_ID = _env_int("CHAIN_ID", 5042002)
+POLL_SECONDS = _env_int("POLL_SECONDS", 8, minimum=3)
+RECENT_BLOCKS = _env_int("RECENT_BLOCKS", 2000, minimum=1)
+# Small window scanned every poll cycle so the live feed stays current even
+# when the RPC is rate-limited; backfill covers the rest gradually.
+RECENT_SCAN_BLOCKS = _env_int("RECENT_SCAN_BLOCKS", 400, minimum=50)
 # How far back to look for events on startup (feed backfill). Arc testnet is
 # very fast (~1000 blocks/min), so the default covers a meaningful slice. The
 # poller grinds through this window in MAX_SCAN_BLOCKS chunks so a slow or
 # rate-limited RPC doesn't get blasted with one huge get_logs range.
-BACKFILL_BLOCKS = max(RECENT_BLOCKS, int(os.getenv("BACKFILL_BLOCKS", "60000")))
+BACKFILL_BLOCKS = max(RECENT_BLOCKS, _env_int("BACKFILL_BLOCKS", 60000))
 # Max blocks scanned per poll cycle; keeps each cycle cheap and RPC-friendly.
-MAX_SCAN_BLOCKS = max(RECENT_BLOCKS, int(os.getenv("MAX_SCAN_BLOCKS", "2000")))
-SAMPLE_ESCROWS = max(4, int(os.getenv("SAMPLE_ESCROWS", "12")))
+MAX_SCAN_BLOCKS = max(RECENT_BLOCKS, _env_int("MAX_SCAN_BLOCKS", 2000))
+SAMPLE_ESCROWS = _env_int("SAMPLE_ESCROWS", 12, minimum=4)
 # If the total escrow count is at or below this, load every escrow so stats are exact.
-MAX_ESCROWS = max(SAMPLE_ESCROWS, int(os.getenv("MAX_ESCROWS", "100")))
+MAX_ESCROWS = max(SAMPLE_ESCROWS, _env_int("MAX_ESCROWS", 100))
 # Comma-separated list of allowed browser origins (frontend dev server by default).
 CORS_ORIGINS = [
     origin.strip()
@@ -87,6 +108,51 @@ ABI = [
         "inputs": [],
         "outputs": [{"name": "", "type": "uint256"}],
         "stateMutability": "view",
+    },
+    {
+        "type": "function",
+        "name": "pendingArbitrator",
+        "inputs": [],
+        "outputs": [{"name": "", "type": "address"}],
+        "stateMutability": "view",
+    },
+    {
+        "type": "function",
+        "name": "arbitratorChangeDeadline",
+        "inputs": [],
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+    },
+    {
+        "type": "function",
+        "name": "escrowDurations",
+        "inputs": [{"name": "", "type": "uint256"}],
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+    },
+    {
+        "type": "event",
+        "name": "ArbitratorChangeScheduled",
+        "anonymous": False,
+        "inputs": [
+            {"name": "newArbitrator", "type": "address", "indexed": True},
+        ],
+    },
+    {
+        "type": "event",
+        "name": "ArbitratorChanged",
+        "anonymous": False,
+        "inputs": [
+            {"name": "newArbitrator", "type": "address", "indexed": True},
+        ],
+    },
+    {
+        "type": "event",
+        "name": "DefaultDurationChanged",
+        "anonymous": False,
+        "inputs": [
+            {"name": "newDuration", "type": "uint256", "indexed": False},
+        ],
     },
     {
         "type": "event",
@@ -214,7 +280,7 @@ async def lifespan(_: FastAPI):
         state.healthy = True
     except Exception as exc:
         state.healthy = False
-        state.error = str(exc)
+        state.error = sanitize_error(exc)
 
     task = asyncio.create_task(poll_chain())
     try:
@@ -254,6 +320,41 @@ class ChainState:
 state = ChainState()
 
 
+# Simple token-bucket limiter shared by the poller and request-time RPC reads.
+# The public Arc testnet RPC bursts at ~3-5 concurrent requests, so we pace
+# ourselves to ~2 req/s instead of compounding 429s.
+class _RateLimiter:
+    def __init__(self, rate: float = 2.0, burst: int = 3):
+        self._rate = rate
+        self._burst = float(burst)
+        self._tokens = float(burst)
+        self._last = time.monotonic()
+        self._lock = Lock()
+
+    def acquire(self) -> None:
+        with self._lock:
+            now = time.monotonic()
+            self._tokens = min(self._burst, self._tokens + (now - self._last) * self._rate)
+            self._last = now
+            if self._tokens >= 1.0:
+                self._tokens -= 1.0
+                return
+        # Out of tokens: wait for the next token.
+        wait = (1.0 - self._tokens) / self._rate
+        time.sleep(wait)
+        with self._lock:
+            self._tokens = max(0.0, self._tokens - 1.0)
+
+
+RPC_LIMITER = _RateLimiter()
+
+
+def limited_call(fn, default=None):
+    """safe_call variant that paces RPC requests through the shared limiter."""
+    RPC_LIMITER.acquire()
+    return safe_call(fn, default)
+
+
 EVENT_META = {
     "EscrowCreated": {"label": "Escrow Created", "tone": "completed", "icon": "✨"},
     "FundsDeposited": {"label": "Funds Deposited", "tone": "funded", "icon": "💰"},
@@ -264,11 +365,26 @@ EVENT_META = {
     "DisputeRaised": {"label": "Dispute Raised", "tone": "disputed", "icon": "⚠️"},
     "DisputeResolved": {"label": "Dispute Resolved", "tone": "completed", "icon": "⚖️"},
     "TokensRescued": {"label": "Recovery Executed", "tone": "completed", "icon": "🛟"},
+    "ArbitratorChangeScheduled": {"label": "Arbitrator Change Scheduled", "tone": "neutral", "icon": "🕐"},
+    "ArbitratorChanged": {"label": "Arbitrator Changed", "tone": "completed", "icon": "🔑"},
+    "DefaultDurationChanged": {"label": "Default Duration Changed", "tone": "neutral", "icon": "⏱️"},
 }
 
 
 def now_ts() -> int:
     return int(datetime.now(timezone.utc).timestamp())
+
+
+def sanitize_error(exc: Exception) -> str:
+    """Human-safe error message for /health and summaries. RPC exception text
+    can embed URLs, connection internals or revert data — keep the detail for
+    logs, expose a short generic reason to API callers."""
+    text = str(exc)
+    if not text:
+        return "RPC error"
+    text = re.sub(r"https?://\S+", "<url>", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:300]
 
 
 def short(address: Optional[str]) -> str:
@@ -291,30 +407,37 @@ def usdc_fmt(value: Any) -> str:
 
 
 def map_escrow(raw: Any, escrow_id: int) -> Dict[str, Any]:
+    # Handle both tuple-style (web3) and object-style (namedtuple/SimpleNamespace)
+    # reads. The tuple path uses explicit indices; the object path falls back to
+    # attribute access. If neither works the caller (e.g. _fetch_escrow) treats
+    # the escrow as not-found rather than surfacing a 500.
     try:
-        client = raw[0]
-        freelancer = raw[1]
-        amount = raw[2]
-        funded = bool(raw[3])
-        work_submitted = bool(raw[4])
-        approved = bool(raw[5])
-        released = bool(raw[6])
-        refunded = bool(raw[7])
-        disputed = bool(raw[8])
-        created_at = int(raw[9])
-        expires_at = int(raw[10])
-    except Exception:
-        client = getattr(raw, "client", None)
-        freelancer = getattr(raw, "freelancer", None)
-        amount = getattr(raw, "amount", 0)
-        funded = bool(getattr(raw, "funded", False))
-        work_submitted = bool(getattr(raw, "workSubmitted", False))
-        approved = bool(getattr(raw, "approved", False))
-        released = bool(getattr(raw, "released", False))
-        refunded = bool(getattr(raw, "refunded", False))
-        disputed = bool(getattr(raw, "disputed", False))
-        created_at = int(getattr(raw, "createdAt", 0) or 0)
-        expires_at = int(getattr(raw, "expiresAt", 0) or 0)
+        if isinstance(raw, (list, tuple)):
+            client = raw[0]
+            freelancer = raw[1]
+            amount = raw[2]
+            funded = bool(raw[3])
+            work_submitted = bool(raw[4])
+            approved = bool(raw[5])
+            released = bool(raw[6])
+            refunded = bool(raw[7])
+            disputed = bool(raw[8])
+            created_at = int(raw[9])
+            expires_at = int(raw[10])
+        else:
+            client = getattr(raw, "client", None)
+            freelancer = getattr(raw, "freelancer", None)
+            amount = getattr(raw, "amount", 0)
+            funded = bool(getattr(raw, "funded", False))
+            work_submitted = bool(getattr(raw, "workSubmitted", False))
+            approved = bool(getattr(raw, "approved", False))
+            released = bool(getattr(raw, "released", False))
+            refunded = bool(getattr(raw, "refunded", False))
+            disputed = bool(getattr(raw, "disputed", False))
+            created_at = int(getattr(raw, "createdAt", 0) or 0)
+            expires_at = int(getattr(raw, "expiresAt", 0) or 0)
+    except Exception as exc:
+        raise ValueError(f"unexpected escrow payload for id {escrow_id}: {exc}") from exc
 
     if disputed:
         status = "disputed"
@@ -355,6 +478,7 @@ def event_item(name: str, args: Dict[str, Any], block_number: int, tx_hash: str)
     meta = EVENT_META.get(name, {"label": name, "tone": "neutral", "icon": "•"})
     escrow_id = args.get("escrowId") or args.get("id") or args.get("escrow_id")
     amount = args.get("amount")
+    recipient = args.get("recipient") or args.get("to")
     return {
         "event": name,
         "label": meta["label"],
@@ -362,6 +486,7 @@ def event_item(name: str, args: Dict[str, Any], block_number: int, tx_hash: str)
         "icon": meta["icon"],
         "escrow_id": str(escrow_id) if escrow_id is not None else None,
         "amount": usdc_fmt(amount) if amount is not None else None,
+        "recipient": recipient,
         "block": block_number,
         "tx_hash": tx_hash,
         "time_ago": 0,
@@ -385,11 +510,11 @@ _escrows_cache: Dict[str, Any] = {
     "total": 0,
     "complete": False,
 }
-ESCROWS_CACHE_TTL = float(os.getenv("ESCROWS_CACHE_TTL", "15"))
+ESCROWS_CACHE_TTL = float(_env_int("ESCROWS_CACHE_TTL", 15))
 
 
 def _fetch_escrow(escrow_id: int) -> Optional[Dict[str, Any]]:
-    raw = safe_call(lambda i=escrow_id: contract.functions.escrows(i).call())
+    raw = limited_call(lambda i=escrow_id: contract.functions.escrows(i).call())
     if raw is None:
         return None
     # Non-existent escrows come back from the contract as a zero-address
@@ -414,16 +539,19 @@ def load_all_escrows() -> Dict[str, Any]:
     if _escrows_cache["escrows"] and now - _escrows_cache["timestamp"] < ESCROWS_CACHE_TTL:
         return _escrows_cache
 
-    total_raw = safe_call(lambda: int(contract.functions.escrowCount().call()))
+    total_raw = limited_call(lambda: int(contract.functions.escrowCount().call()))
     total = total_raw or 0
     # Keep the endpoint bounded: load up to MAX_ESCROWS and report total.
     limit = min(total, MAX_ESCROWS)
     escrows: List[Dict[str, Any]] = []
     fetch_failures = 0
     if limit > 0:
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            results = list(pool.map(_fetch_escrow, range(1, limit + 1)))
-        for result in results:
+        # Load the NEWEST escrows (highest ids) so the list, filters and stats
+        # reflect recent activity even when the chain has more than MAX_ESCROWS.
+        # Sequential fetch paced by the shared RPC limiter (the testnet RPC
+        # rate-limits bursts of ~3-5, so 4-way parallelism just compounds 429s).
+        for escrow_id in range(total, total - limit, -1):
+            result = _fetch_escrow(escrow_id)
             if result is None:
                 fetch_failures += 1
             else:
@@ -476,25 +604,14 @@ def load_chain_summary(use_cache: bool = True) -> Dict[str, Any]:
         return _empty_summary()
     total = total_raw or 0
 
-    # Load everything up to MAX_ESCROWS so stats are exact at reasonable scale;
-    # beyond that, fall back to a sample so the endpoint stays fast.
-    limit = total if total <= MAX_ESCROWS else SAMPLE_ESCROWS
-    escrows: List[Dict[str, Any]] = []
-    fetch_failures = 0
-    if limit > 0:
-        # Fetch escrows in parallel: the public testnet RPC is slow and
-        # rate-limited, and a sequential loop of dozens of calls is very laggy.
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            results = list(pool.map(_fetch_escrow, range(1, limit + 1)))
-        for result in results:
-            if result is None:
-                fetch_failures += 1
-            else:
-                escrows.append(result)
+    # Reuse the /escrows cache (same bounded, newest-first data) so the poller
+    # does not fetch every escrow twice per cycle.
+    escrows_data = load_all_escrows()
+    escrows = escrows_data["escrows"]
 
     selected = None
     if escrows:
-        selected = escrows[-1]
+        selected = escrows[0]
 
     stats = {
         "total_escrows": total,
@@ -513,14 +630,14 @@ def load_chain_summary(use_cache: bool = True) -> Dict[str, Any]:
             "error": state.error,
             "synced_at": state.last_synced_at,
         },
-        "recent_escrows": list(reversed(escrows[-6:])),
+        "recent_escrows": escrows[:6],
         "selected_escrow": selected,
         "stats": stats,
     }
 
     # Only cache fully successful builds so a rate-limited RPC can't poison the
     # cache with a misleading "0 escrows" snapshot.
-    if fetch_failures == 0:
+    if escrows_data["complete"]:
         _summary_cache["timestamp"] = time.monotonic()
         _summary_cache["data"] = summary
     return summary
@@ -537,6 +654,18 @@ def load_wallet_summary(address: str) -> Dict[str, Any]:
             "allowance": "--",
         }
 
+    address = (address or "").strip()
+    if not Web3.is_address(address):
+        return {
+            "connected": False,
+            "address": "--",
+            "short_address": "--",
+            "network": CHAIN_NAME,
+            "usdc_balance": "--",
+            "allowance": "--",
+            "error": "Invalid address",
+        }
+
     checksum = Web3.to_checksum_address(address)
     balance = safe_call(lambda: usdc.functions.balanceOf(checksum).call(), 0)
     allowance = safe_call(lambda: usdc.functions.allowance(checksum, CONTRACT_ADDRESS).call(), 0)
@@ -551,34 +680,85 @@ def load_wallet_summary(address: str) -> Dict[str, Any]:
     }
 
 
-def _get_logs_with_retry(event_class, from_block: int, to_block: int, attempts: int = 3) -> List[Any]:
-    """get_logs with a short backoff so transient RPC rate-limits (HTTP 429)
-    don't silently drop events from the feed."""
+def _get_logs_with_retry(fn, from_block: int, to_block: int, attempts: int = 3) -> List[Any]:
+    """Call fn() (a get_logs call) with rate-limit-aware retries.
+
+    429/503 means "slow down for a while", so we sleep longer between attempts
+    (respecting Retry-After when present) instead of hammering with short
+    retries, which is what makes the Arc testnet RPC worse. Non-rate-limit
+    errors retry with a short backoff. After attempts all fail, the caller
+    treats the window as incomplete and the poller retries next cycle."""
     last_error: Optional[Exception] = None
     for attempt in range(attempts):
         try:
-            return event_class().get_logs(from_block=from_block, to_block=to_block)
+            return fn()
         except Exception as exc:  # noqa: BLE001 - surface any RPC failure
             last_error = exc
-            time.sleep(1.0 + attempt)
+            text = str(exc)
+            is_rate_limit = "429" in text or "Too Many Requests" in text or "503" in text
+            retry_after = _rpc_retry_after(exc)
+            if is_rate_limit:
+                # A long, single pause — the RPC needs time to refill.
+                time.sleep(min(retry_after if retry_after is not None else 12.0, 20.0))
+            else:
+                delay = min(6.0, (1.5 ** attempt)) + random.uniform(0, 0.4)
+                time.sleep(delay)
     raise last_error  # type: ignore[misc]
 
 
-def scan_new_events(from_block: int, to_block: int) -> List[Dict[str, Any]]:
+def _rpc_retry_after(exc: Exception) -> Optional[float]:
+    """Read the Retry-After header from an httpx HTTPStatusError (429/503)."""
+    try:
+        resp = exc.response  # type: ignore[attr-defined]
+        if resp is not None and "Retry-After" in resp.headers:
+            return float(resp.headers["Retry-After"])
+    except Exception:
+        pass
+    return None
+
+
+def scan_new_events(from_block: int, to_block: int) -> tuple[List[Dict[str, Any]], bool]:
+    """Scan the block window for all tracked events.
+
+    Returns (events, complete). complete is False when any event-type scan
+    failed after retries, so the poller can avoid advancing past the window —
+    otherwise the events in that gap would be dropped from the feed forever.
+
+    The public Arc testnet RPC rejects multi-topic (OR'd) get_logs with
+    "requested range too large" even on small ranges, so events are fetched
+    per event-type. Each call is paced through the shared RPC limiter (~2/s)
+    with exponential backoff on 429, so a full cycle of 10 event types is a
+    slow, steady trickle instead of a burst that trips the RPC's ~3-5 limit.
+    """
     events: List[Dict[str, Any]] = []
     if from_block > to_block:
-        return events
+        return events, True
 
     event_names = list(EVENT_META.keys())
     block_time_cache: Dict[int, int] = {}
+    all_complete = True
+    consecutive_failures = 0
     for event_name in event_names:
         try:
-            event_class = getattr(contract.events, event_name)
-            logs = _get_logs_with_retry(event_class, from_block, to_block)
+            event_class = contract.events[event_name]
+
+            def _do_scan(ec=event_class) -> List[Any]:
+                RPC_LIMITER.acquire()
+                return ec().get_logs(from_block=from_block, to_block=to_block)
+
+            logs = _get_logs_with_retry(_do_scan, from_block, to_block)
+            consecutive_failures = 0
         except Exception as exc:
             # Log once so feed gaps are diagnosable instead of silent.
             print(f"[scan_new_events] {event_name} {from_block}-{to_block} failed: {exc}", flush=True)
+            all_complete = False
             logs = []
+            consecutive_failures += 1
+            # If the RPC is clearly rate-limited, don't burn the whole cycle
+            # retrying every remaining event type — mark the window incomplete
+            # and let the poller retry it after a backoff.
+            if consecutive_failures >= 3:
+                break
 
         for log in logs:
             args = dict(log["args"]) if "args" in log else {}
@@ -587,16 +767,19 @@ def scan_new_events(from_block: int, to_block: int) -> List[Dict[str, Any]]:
             block_number = int(log.get("blockNumber", 0))
             item = event_item(event_name, args, block_number, tx_hash)
             # Use the real block timestamp (fetched once per block) instead of
-            # treating the block *number* as a Unix timestamp.
+            # treating the block *number* as a Unix timestamp. A failed read
+            # leaves time_ago at 0 ("just now") rather than producing a
+            # meaningless epoch-based value.
             timestamp = block_time_cache.get(block_number)
             if timestamp is None:
-                timestamp = safe_call(lambda b=block_number: int(w3.eth.get_block(b)["timestamp"]), 0)
+                timestamp = limited_call(lambda b=block_number: int(w3.eth.get_block(b)["timestamp"]), None)
                 block_time_cache[block_number] = timestamp
-            item["time_ago"] = max(0, now_ts() - timestamp)
+            if timestamp:
+                item["time_ago"] = max(0, now_ts() - int(timestamp))
             events.append(item)
 
     events.sort(key=lambda item: (item["block"], item.get("escrow_id") or ""), reverse=True)
-    return events
+    return events, all_complete
 
 
 async def poll_chain() -> None:
@@ -605,27 +788,60 @@ async def poll_chain() -> None:
     run in FastAPI's thread pool) are never stalled by a slow RPC scan."""
     while True:
         try:
-            latest = await asyncio.to_thread(lambda: int(w3.eth.block_number))
-            start = state.last_scanned_block + 1 if state.last_scanned_block else max(1, latest - RECENT_BLOCKS)
-            # Scan at most MAX_SCAN_BLOCKS per cycle so startup backfill (and any
-            # sustained catch-up) stays incremental instead of one huge range.
-            end = min(latest, start + MAX_SCAN_BLOCKS - 1)
-            if end >= start:
-                new_events = await asyncio.to_thread(scan_new_events, start, end)
+            latest = await asyncio.to_thread(lambda: limited_call(lambda: int(w3.eth.block_number), state.latest_block))
+            if not latest:
+                latest = state.latest_block
+
+            # Always scan the recent window first so the activity feed is live.
+            # RECENT_SCAN_BLOCKS is small (a few hundred) — cheap enough to
+            # complete even on a rate-limited RPC.
+            recent_start = max(1, latest - RECENT_SCAN_BLOCKS)
+            scan_complete = True
+            if recent_start <= latest:
+                new_events, scan_complete = await asyncio.to_thread(scan_new_events, recent_start, latest)
                 if new_events:
                     state.recent_events = (new_events + state.recent_events)[:200]
-                state.last_scanned_block = end
-            state.latest_block = latest
-            state.healthy = True
-            state.error = ""
-            state.last_synced_at = now_ts()
+                state.latest_block = latest
+                state.healthy = True
+                state.error = ""
+                state.last_synced_at = now_ts()
+
+            # Backfill: grind toward the oldest un-scanned block in chunks.
+            # Only attempt backfill when the recent scan succeeded, so a
+            # rate-limited RPC never stalls the live feed.
+            if scan_complete:
+                state._consecutive_failures = 0
+                # Cold start: the backfill cursor begins RECENT_BLOCKS back
+                # (events older than that are far out of any useful window).
+                cursor = (state.last_scanned_block + 1) if state.last_scanned_block else (latest - RECENT_BLOCKS)
+                backfill_end = min(latest - 1, cursor + MAX_SCAN_BLOCKS - 1)
+                if backfill_end <= recent_start:
+                    old_events, backfill_ok = await asyncio.to_thread(scan_new_events, cursor, backfill_end)
+                    if old_events:
+                        state.recent_events = (old_events + state.recent_events)[:200]
+                    if backfill_ok:
+                        state.last_scanned_block = backfill_end
+                    else:
+                        state._consecutive_failures = getattr(state, "_consecutive_failures", 0) + 1
+                else:
+                    # Everything up to the recent window is scanned.
+                    state.last_scanned_block = recent_start - 1
+            else:
+                state._consecutive_failures = getattr(state, "_consecutive_failures", 0) + 1
+
             # Rebuild the cached summary in a worker thread (only cached when
-            # the build completes without RPC failures).
+            # the build completes without RPC failures). It reuses the /escrows
+            # cache, so this adds at most one escrowCount read per cycle.
             await asyncio.to_thread(lambda: load_chain_summary(use_cache=False))
         except Exception as exc:
             state.healthy = False
-            state.error = str(exc)
-        await asyncio.sleep(POLL_SECONDS)
+            state.error = sanitize_error(exc)
+            state._consecutive_failures = getattr(state, "_consecutive_failures", 0) + 1
+
+        failures = getattr(state, "_consecutive_failures", 0)
+        # Back off up to 60s on repeated scan failures (rate limiting).
+        backoff = min(60.0, POLL_SECONDS * (2 ** min(failures, 4)))
+        await asyncio.sleep(backoff)
 
 
 @app.get("/health")
@@ -633,6 +849,7 @@ def health() -> Dict[str, Any]:
     return {
         "ok": state.healthy,
         "latest_block": state.latest_block,
+        "last_scanned_block": state.last_scanned_block,
         "error": state.error,
         "rpc_url": ARC_RPC_URL,
         "contract_address": CONTRACT_ADDRESS,
@@ -657,12 +874,11 @@ def live(address: str = Query(default=""), escrow_id: str = Query(default="")) -
     selected = chain["selected_escrow"]
     if escrow_id.strip().isdigit():
         escrow_number = int(escrow_id.strip())
-        raw = safe_call(lambda: contract.functions.escrows(escrow_number).call())
-        if raw is not None:
-            try:
-                selected = map_escrow(raw, escrow_number)
-            except Exception:
-                pass
+        # _fetch_escrow treats the zero-address placeholder as not-found, so a
+        # nonexistent id never surfaces as a fake "Waiting" escrow here.
+        fetched = _fetch_escrow(escrow_number)
+        if fetched is not None:
+            selected = fetched
 
     # Serve a per-escrow event timeline when escrow_id is given, otherwise the
     # 12 most recent events (the activity feed).
@@ -683,10 +899,13 @@ def live(address: str = Query(default=""), escrow_id: str = Query(default="")) -
 
 @app.get("/escrow/{escrow_id}")
 def escrow_detail(escrow_id: int) -> Dict[str, Any]:
-    raw = safe_call(lambda: contract.functions.escrows(escrow_id).call())
-    if raw is None:
-        return {"error": "Escrow not found"}
-    return map_escrow(raw, escrow_id)
+    # _fetch_escrow treats the contract's zero-address placeholder for
+    # nonexistent IDs as not-found, so callers never get a fake "Waiting"
+    # escrow.
+    data = _fetch_escrow(escrow_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Escrow not found")
+    return data
 
 
 @app.get("/escrows")
@@ -729,7 +948,7 @@ def escrows_list(
 
 # In-memory cache for /safety: contract safety facts, refreshed on a TTL.
 _safety_cache: Dict[str, Any] = {"timestamp": 0.0, "data": None}
-SAFETY_CACHE_TTL = float(os.getenv("SAFETY_CACHE_TTL", "10"))
+SAFETY_CACHE_TTL = float(_env_int("SAFETY_CACHE_TTL", 10))
 
 
 def load_safety_summary(use_cache: bool = True) -> Dict[str, Any]:
@@ -737,7 +956,12 @@ def load_safety_summary(use_cache: bool = True) -> Dict[str, Any]:
     eth_call view reads (no get_logs), cached on a short TTL. Values that
     cannot be verified are reported as None so the UI can show 'Not verified'
     instead of inventing results."""
-    if use_cache and _safety_cache["data"] is not None:
+    now = time.monotonic()
+    if (
+        use_cache
+        and _safety_cache["data"] is not None
+        and now - _safety_cache["timestamp"] < SAFETY_CACHE_TTL
+    ):
         return _safety_cache["data"]
 
     owner = safe_call(lambda: contract.functions.owner().call(), None)
@@ -868,7 +1092,10 @@ async def chat_endpoint(req: ChatRequest) -> Dict[str, Any]:
     if m:
         escrow_id = int(m.group(1))
         if escrow_id > 0:
-            data = _fetch_escrow(escrow_id)
+            # _fetch_escrow does blocking eth_call RPC — run it in a worker
+            # thread so a slow/rate-limited RPC can't freeze the event loop
+            # (and with it every other endpoint) for the duration.
+            data = await asyncio.to_thread(_fetch_escrow, escrow_id)
             context["escrow_live"] = _format_escrow_for_ai(data) or (
                 f"Escrow #{escrow_id} does not exist on the chain "
                 "(the contract returned no escrow for that ID)."

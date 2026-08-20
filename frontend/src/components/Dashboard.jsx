@@ -123,8 +123,15 @@ function Dashboard(props) {
 
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
 
     const refreshChainSnapshot = async () => {
+      // Re-entrancy guard: if a previous refresh is still awaiting slow RPC
+      // calls, skip this run. Otherwise slow fetches pile up and every poll
+      // cycle spawns another overlapping batch, which saturates the RPC and
+      // eventually freezes the tab.
+      if (inFlight) return;
+      inFlight = true;
       const provider = resolveReadProvider(providerSource);
 
       if (!providerSource) {
@@ -182,6 +189,7 @@ function Dashboard(props) {
           "EscrowCancelled",
           "DisputeRaised",
           "DisputeResolved",
+          "TokensRescued",
         ];
 
         // Feed source: prefer the backend /live cache (one HTTP call, no RPC
@@ -296,9 +304,26 @@ function Dashboard(props) {
 
                 const timestamp = await formatBlockTime(event.blockNumber);
                 const escrowIdFromEvent = event.args?.escrowId ?? getArg(event.args, 0);
-                const amountFromEvent = event.args?.amount ?? getArg(event.args, 1);
-                const clientFromEvent = event.args?.client ?? getArg(event.args, 1);
-                const freelancerFromEvent = event.args?.freelancer ?? getArg(event.args, 2);
+                // Positional arg layout per event (ethers v6 Result throws on
+                // out-of-range access, hence getArg):
+                //   EscrowCreated(id, client, freelancer, amount)
+                //   FundsDeposited/Released/Cancelled(id, amount)
+                //   DisputeResolved(id, favorFreelancer, amount)
+                //   WorkSubmitted/Approved/DisputeRaised(id)
+                const clientFromEvent =
+                  event.type === "EscrowCreated"
+                    ? event.args?.client ?? getArg(event.args, 1)
+                    : undefined;
+                const freelancerFromEvent =
+                  event.type === "EscrowCreated"
+                    ? event.args?.freelancer ?? getArg(event.args, 2)
+                    : undefined;
+                const amountFromEvent =
+                  event.type === "EscrowCreated"
+                    ? event.args?.amount ?? getArg(event.args, 3)
+                    : event.type === "DisputeResolved"
+                      ? event.args?.amount ?? getArg(event.args, 2)
+                      : event.args?.amount ?? getArg(event.args, 1);
 
                 let detail = `Block #${event.blockNumber}`;
                 if (event.type === "EscrowCreated") {
@@ -426,14 +451,11 @@ function Dashboard(props) {
           setFeedLoading(false);
         }
       } finally {
+        inFlight = false;
         if (!cancelled) {
           setFeedLoading(false);
         }
       }
-    };
-
-    const handleBlock = () => {
-      refreshChainSnapshot();
     };
 
     const handleAccountsChanged = () => {
@@ -450,12 +472,15 @@ function Dashboard(props) {
       providerSource.on("accountsChanged", handleAccountsChanged);
       providerSource.on("chainChanged", handleChainChanged);
 
-      const provider = new BrowserProvider(providerSource);
-      provider.on("block", handleBlock);
+      // NOTE: no `provider.on("block", ...)` here on purpose. Arc testnet mines
+      // ~1000 blocks/min, so a block listener would fire refreshChainSnapshot
+      // ~every 60ms — each run makes multiple RPC calls, and the public testnet
+      // RPC rate-limits bursts (HTTP 429). That flood of overlapping fetches is
+      // what makes the page freeze ("Page Unresponsive"). The setInterval below
+      // (Settings → Auto-refresh, default 30s) is the single refresh driver.
 
       return () => {
         cancelled = true;
-        provider.off("block", handleBlock);
         providerSource.removeListener?.("accountsChanged", handleAccountsChanged);
         providerSource.removeListener?.("chainChanged", handleChainChanged);
       };

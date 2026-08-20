@@ -8,6 +8,7 @@ import { useWalletBridge } from "../hooks/useWalletBridge";
 import { fetchLiveSnapshot, fetchSafety } from "../lib/liveApi";
 import { toast, updateToast } from "../lib/toast";
 import { formatRelativeTime, shortenAddress } from "../lib/escrowFormat";
+import { ensureArcNetwork } from "../contracts/wallet";
 
 const PUBLIC_RPC_URL = arcTestnet.rpcUrls.default.http[0];
 const TX_EXPLORER_URL = arcTestnet.blockExplorers?.default?.url ?? "";
@@ -146,8 +147,13 @@ function SafetyCenter({ onNavigate }) {
   // Initial failures show an error; silent refresh failures keep last data.
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
 
     const load = async (initial = false) => {
+      // Skip overlapping runs when the backend is slow — same re-entrancy
+      // guard as the Dashboard, so poll cycles never stack requests.
+      if (inFlight) return;
+      inFlight = true;
       if (initial) setLoading(true);
       if (initial) setSafetyError("");
 
@@ -183,7 +189,7 @@ function SafetyCenter({ onNavigate }) {
                   : "Escrow Protection — funds locked",
               detail:
                 ev.event === "TokensRescued"
-                  ? `${ev.amount ?? ""} rescued to ${shortenAddress(ev.tx_hash)}`.trim()
+                  ? `${ev.amount ?? ""} rescued to ${shortenAddress(ev.recipient || ev.tx_hash)}`.trim()
                   : `${ev.amount ?? ""} locked in escrow #${ev.escrow_id ?? "--"}`,
               ts: Math.floor(Date.now() / 1000) - Number(ev.time_ago ?? 0),
               session: false,
@@ -193,6 +199,7 @@ function SafetyCenter({ onNavigate }) {
       } catch (err) {
         if (!cancelled && initial) setSafetyError(err?.message || "Failed to load safety data.");
       } finally {
+        inFlight = false;
         if (!cancelled && initial) setLoading(false);
       }
     };
@@ -321,6 +328,9 @@ function SafetyCenter({ onNavigate }) {
     }
     try {
       setOtherResult(null);
+      // If a review is open for a previously checked token, close it — the
+      // asset being reviewed may no longer be the one the user is looking at.
+      setReviewAsset(null);
       const provider = new JsonRpcProvider(PUBLIC_RPC_URL);
       const tokenContract = new Contract(token, ERC20_MIN_ABI, provider);
       const [balance, symbol, decimals] = await Promise.all([
@@ -379,6 +389,12 @@ function SafetyCenter({ onNavigate }) {
         return;
       }
 
+      const net = await ensureArcNetwork(providerSource);
+      if (!net.ok) {
+        updateToast(pendingToastId, { message: net.message, type: "warning", duration: 6000 });
+        return;
+      }
+
       const signer = await provider.getSigner();
       const signerAddress = await signer.getAddress();
       if (String(signerAddress).toLowerCase() !== String(ownerAddress).toLowerCase()) {
@@ -415,6 +431,10 @@ function SafetyCenter({ onNavigate }) {
       });
 
       setReviewAsset(null);
+      // A successful rescue moves the asset out of the contract — clear any
+      // checked-token result so the page doesn't keep showing a stale balance.
+      setOtherResult(null);
+      setDestination("");
       // Refetch so the page reflects the new on-chain balance.
       try {
         const fresh = await fetchSafety({ signal: null });
@@ -535,7 +555,13 @@ function SafetyCenter({ onNavigate }) {
               label="Protected Funds"
               value={contract.locked ?? "--"}
               sub="Locked in funded escrows"
-              state={contract.locked_wei != null && BigInt(contract.locked_wei) > 0n ? "healthy" : "verified"}
+              state={
+                contract.locked_wei == null
+                  ? "notverified"
+                  : BigInt(contract.locked_wei) > 0n
+                    ? "healthy"
+                    : "verified"
+              }
             />
             <SafetyStat
               label="Contract Health"
@@ -808,6 +834,14 @@ function SafetyCenter({ onNavigate }) {
           </div>
 
           <div className="safety-review-actions">
+            <button
+              type="button"
+              className="help-cta"
+              onClick={() => setReceipt(null)}
+              disabled={pending}
+            >
+              Dismiss
+            </button>
             <a
               className="help-cta safety-explorer-link"
               href={explorerLink(receipt.hash)}

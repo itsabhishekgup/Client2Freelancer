@@ -4,7 +4,7 @@
 
 ArcBridge is a full-stack escrow protocol that lets clients and freelancers transact without trusting each other. Funds are locked in a smart contract, work is submitted on-chain, and disputes are resolved by a neutral arbitrator — every step verifiable on-chain.
 
-**Live contract:** [`0x788bd809f93b8915f0dcd1ab3b3560355c8d0ff3`](https://testnet.arcscan.app/address/0x788bd809f93b8915f0dcd1ab3b3560355c8d0ff3) on Arc Testnet (chain id `5042002`) — **✅ source verified on ArcScan** (Solidity `v0.8.35`, ABI published)
+**Live contract:** [`0xa12b4775b2eb4741aabbb8e2aade41e9ad0665e4`](https://testnet.arcscan.app/address/0xa12b4775b2eb4741aabbb8e2aade41e9ad0665e4) on Arc Testnet (chain id `5042002`) — **✅ source verified on ArcScan** (Solidity `v0.8.35`, ABI published)
 
 📜 **License:** [MIT](LICENSE) · Copyright © 2026 Abhishek
 
@@ -15,11 +15,12 @@ ArcBridge is a full-stack escrow protocol that lets clients and freelancers tran
 ### Smart Contract (`ArcBridgeEscrow.sol`)
 - **Escrow lifecycle** — create → deposit USDC → submit work → approve → release funds
 - **Cancel & refund** — client refunds escrowed funds with a single transaction
-- **Expiry timelock** — every escrow has an `expiresAt` (default 7 days, configurable per-escrow via `createEscrowWithDeadline`)
-- **`claimAfterExpiry`** — freelancer protection: if the client never approves, funds can be claimed once expired
-- **Dispute & arbitration** — either party raises a dispute; the arbitrator (`setArbitrator`, owner-set) resolves it in favor of client or freelancer
+- **Expiry timelock** — every escrow has an expiry duration (default 7 days, configurable per-escrow via `createEscrowWithDeadline`); the countdown **starts when funds are deposited**, so a freelancer always gets the full duration to submit work
+- **`claimAfterExpiry`** — freelancer protection: if the client never approves, work was submitted, and the timelock has passed, the freelancer claims the funds
+- **Freelancer release after approval** — once the client approves, either party can release the funds, so a stalling client cannot freeze payment
+- **Dispute & arbitration** — either party raises a dispute; the arbitrator (`setArbitrator`, owner-set with a 2-day change timelock) resolves it in favor of client or freelancer
 - **`rescueTokens`** — owner recovers tokens accidentally sent to the contract; for USDC only the amount above locked escrow balances is touchable, so client funds are never at risk
-- **Escrow cap** — `maxEscrowsPerClient` (default 50, owner-configurable) blocks spam: a wallet can never create more than the cap
+- **Escrow cap** — `maxEscrowsPerClient` (default 50, owner-configurable) blocks spam; the cap counts **open** escrows and a slot is freed when an escrow is released, refunded, or resolved
 - **Reentrancy-guarded**, custom `safeTransfer` error handling, `Ownable` admin
 
 ### Backend (FastAPI)
@@ -68,7 +69,7 @@ ArcBridge is a full-stack escrow protocol that lets clients and freelancers tran
 ```bash
 cd contracts
 forge build
-forge test          # 44 tests: lifecycle, cancel, expiry, dispute, auth
+forge test          # 70 tests: lifecycle, cancel, expiry, claim, dispute, auth
 ```
 
 ### 2. Backend
@@ -95,11 +96,11 @@ npm run dev            # http://localhost:5173
 | Variable | Default | Purpose |
 |---|---|---|
 | `ARC_RPC_URL` | `https://rpc.testnet.arc.network` | Arc testnet RPC |
-| `CONTRACT_ADDRESS` | `0xabba...` (live) | Escrow contract |
+| `CONTRACT_ADDRESS` | `0xa12b...` (live) | Escrow contract |
 | `USDC_ADDRESS` | `0x3600...` | USDC token |
 | `CHAIN_ID` | `5042002` | Chain id |
 | `POLL_SECONDS` | `8` | Poller interval |
-| `BACKFILL_BLOCKS` | `20000` | Event backfill window |
+| `BACKFILL_BLOCKS` | `60000` | Event backfill window |
 | `ESCROWS_CACHE_TTL` | `15` | List cache TTL (s) |
 | `GEMINI_API_KEY` | _(empty)_ | Free Gemini API key for AI assistant fallback (optional) |
 | `GEMINI_MODEL` | `gemini-3.1-flash-lite` | Gemini model used by the assistant |
@@ -163,10 +164,10 @@ cd backend && python -m uvicorn main:app --reload --port 8000
 GitHub Actions runs **all three suites on every push/PR** (see `.github/workflows/ci.yml`):
 
 ```bash
-# Smart contracts — 44 tests (lifecycle, cancel, expiry, dispute, auth)
+# Smart contracts — 70 tests (lifecycle, cancel, expiry, claim, dispute, auth, cap)
 cd contracts && forge test && forge fmt --check
 
-# Backend — 32 tests (helpers, endpoints, caching, partial-read safety)
+# Backend — 97 tests (helpers, endpoints, caching, partial-read safety, assistant)
 cd backend && pip install -r requirements.txt && python -m pytest tests/ -v
 
 # Frontend lint + build

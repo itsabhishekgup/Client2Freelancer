@@ -4239,6 +4239,21 @@ select:focus {
 .fund-step--success {
   border-color: rgba(34, 197, 94, 0.35);
 }
+.fund-step--error {
+  border-color: rgba(239, 68, 68, 0.4);
+}
+.fund-step--error .fund-step-icon {
+  color: #ef4444;
+}
+.fund-step-error {
+  flex: none;
+  max-width: 180px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #f87171;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
 .fund-step--pending .fund-step-icon {
   color: #8b93f5;
   animation: pulse 1.4s ease-in-out infinite;

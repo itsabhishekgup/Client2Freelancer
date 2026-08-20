@@ -14,14 +14,20 @@ function SafetySummaryCard({ onNavigate }) {
 
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
 
     const load = async (initial = false) => {
+      // Skip if a previous request is still in flight — prevents overlapping
+      // fetches when the backend is slow (same guard as the Dashboard refresh).
+      if (inFlight) return;
+      inFlight = true;
       try {
         const snap = await fetchSafety({ signal: null });
         if (!cancelled) setData(snap);
       } catch (err) {
         if (!cancelled && initial) setError(err?.message || "Unavailable");
       } finally {
+        inFlight = false;
         if (!cancelled && initial) setLoading(false);
       }
     };

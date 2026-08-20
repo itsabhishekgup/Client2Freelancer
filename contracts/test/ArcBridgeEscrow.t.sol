@@ -70,6 +70,10 @@ contract ArcBridgeEscrowTest is Test {
         usdc = new MockUSDC();
         escrow = new ArcBridgeEscrow(address(usdc));
         escrow.setArbitrator(arbitrator);
+        // Two-step change: warp past the delay and confirm so the test
+        // arbitrator is the active one for the whole suite.
+        vm.warp(block.timestamp + escrow.ARBITRATOR_CHANGE_DELAY() + 1);
+        escrow.confirmArbitrator();
         usdc.mint(client, 1_000_000e6);
         vm.prank(client);
         usdc.approve(address(escrow), type(uint256).max);
@@ -176,7 +180,9 @@ contract ArcBridgeEscrowTest is Test {
         assertFalse(_refunded);
         assertFalse(_disputed);
         assertEq(_createdAt, block.timestamp);
-        assertEq(_expiresAt, block.timestamp + 7 days);
+        // The expiry clock starts at funding, so an unfunded escrow has no
+        // expiresAt yet.
+        assertEq(_expiresAt, 0);
         assertEq(escrow.escrowCount(), 1);
     }
 
@@ -195,8 +201,14 @@ contract ArcBridgeEscrowTest is Test {
     function test_CreateEscrowWithDeadline_SetsCustomExpiry() public {
         uint256 id = _createWithDeadline(AMOUNT, 1 days);
 
+        // Unfunded: expiresAt is 0. The clock starts when the client funds.
         (,,,,,,,,,, uint256 _expiresAt) = _fields(id);
-        assertEq(_expiresAt, block.timestamp + 1 days);
+        assertEq(_expiresAt, 0);
+
+        vm.prank(client);
+        escrow.depositFunds(id);
+        (,,,,,,,,,, uint256 _expiresAtAfterFunding) = _fields(id);
+        assertEq(_expiresAtAfterFunding, block.timestamp + 1 days);
     }
 
     function test_CreateEscrowWithDeadline_RevertsZeroDuration() public {
@@ -252,12 +264,16 @@ contract ArcBridgeEscrowTest is Test {
         escrow.depositFunds(id);
     }
 
-    function test_Deposit_RevertsAfterExpiry() public {
+    function test_Deposit_AllowedAfterLongDelay_SetsExpiryFromFunding() public {
+        // The expiry clock starts at funding, so a client may fund long after
+        // creation and the freelancer still gets the full duration to work.
         uint256 id = _create(AMOUNT);
-        _warpToExpiry(id);
+        vm.warp(block.timestamp + 30 days);
         vm.prank(client);
-        vm.expectRevert(ArcBridgeEscrow.EscrowExpired.selector);
         escrow.depositFunds(id);
+
+        (,,,,,,,,,, uint256 _expiresAt) = _fields(id);
+        assertEq(_expiresAt, block.timestamp + 7 days);
     }
 
     // ---------------- submit / approve / release guards ----------------
@@ -425,18 +441,37 @@ contract ArcBridgeEscrowTest is Test {
         assertEq(usdc.balanceOf(address(escrow)), 0);
     }
 
-    function test_ClaimAfterExpiry_WorksAfterApproval() public {
-        // Client approved but never released: freelancer can still claim at expiry.
+    function test_ClaimAfterExpiry_RevertsAfterApproval() public {
+        // Once the client approves, the freelancer's path is releaseFunds
+        // (which the freelancer can call) — not a unilateral claim at expiry.
         uint256 id = _fundedSubmittedApproved(AMOUNT);
         _warpToExpiry(id);
 
+        vm.prank(freelancer);
+        vm.expectRevert(ArcBridgeEscrow.NotApprovedClaim.selector);
+        escrow.claimAfterExpiry(id);
+    }
+
+    function test_FreelancerCanReleaseAfterApproval() public {
+        // Client approves but goes offline: the freelancer can release the
+        // funds instead of waiting for the timelock.
+        uint256 id = _fundedSubmittedApproved(AMOUNT);
+
         uint256 freelancerBefore = usdc.balanceOf(freelancer);
         vm.prank(freelancer);
-        escrow.claimAfterExpiry(id);
+        escrow.releaseFunds(id);
 
         (,,,,,, bool _released,,,,) = _fields(id);
         assertTrue(_released);
         assertEq(usdc.balanceOf(freelancer), freelancerBefore + AMOUNT);
+        assertEq(usdc.balanceOf(address(escrow)), 0);
+    }
+
+    function test_Release_RevertsNonParticipant() public {
+        uint256 id = _fundedSubmittedApproved(AMOUNT);
+        vm.prank(other);
+        vm.expectRevert(ArcBridgeEscrow.NotParticipant.selector);
+        escrow.releaseFunds(id);
     }
 
     // ---------------- dispute / arbitration ----------------
@@ -573,13 +608,76 @@ contract ArcBridgeEscrowTest is Test {
         vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), other));
         escrow.setArbitrator(other);
 
+        // Non-owner cannot schedule a change.
+        vm.prank(other);
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), other));
         escrow.setArbitrator(other);
-        assertEq(escrow.arbitrator(), other);
+
+        // Owner schedules; pending is set, active arbitrator unchanged.
+        escrow.setArbitrator(other);
+        assertEq(escrow.pendingArbitrator(), other);
+        assertEq(escrow.arbitrator(), arbitrator);
     }
 
     function test_SetArbitrator_RevertsZeroAddress() public {
         vm.expectRevert(ArcBridgeEscrow.InvalidArbitrator.selector);
         escrow.setArbitrator(address(0));
+    }
+
+    function test_SetArbitrator_TimelockPreventsImmediateSwap() public {
+        // Scheduling a change does NOT change the active arbitrator: the old
+        // arbitrator keeps resolving during the delay window.
+        escrow.setArbitrator(other);
+        assertEq(escrow.arbitrator(), arbitrator); // still the old one
+        assertEq(escrow.pendingArbitrator(), other);
+        assertGt(escrow.arbitratorChangeDeadline(), block.timestamp);
+
+        uint256 id = _createAndFund(AMOUNT);
+        vm.prank(freelancer);
+        escrow.disputeEscrow(id);
+
+        // The old arbitrator can still resolve while the change is pending.
+        vm.prank(arbitrator);
+        escrow.resolveDispute(id, true);
+
+        // The pending arbitrator cannot act yet.
+        uint256 id2 = _createAndFund(AMOUNT);
+        vm.prank(freelancer);
+        escrow.disputeEscrow(id2);
+        vm.prank(other);
+        vm.expectRevert(ArcBridgeEscrow.NotArbitrator.selector);
+        escrow.resolveDispute(id2, true);
+    }
+
+    function test_SetArbitrator_ConfirmAfterDelay() public {
+        escrow.setArbitrator(other);
+        assertEq(escrow.arbitrator(), arbitrator);
+
+        vm.warp(escrow.arbitratorChangeDeadline() + 1);
+        vm.prank(arbitrator);
+        assertEq(escrow.confirmArbitrator(), other);
+        assertEq(escrow.arbitrator(), other);
+        assertEq(escrow.arbitratorChangeDeadline(), 0);
+        assertEq(escrow.pendingArbitrator(), address(0));
+    }
+
+    function test_SetArbitrator_ConfirmTooEarlyReverts() public {
+        escrow.setArbitrator(other);
+        vm.prank(arbitrator);
+        vm.expectRevert(ArcBridgeEscrow.TimelockPending.selector);
+        escrow.confirmArbitrator();
+        assertEq(escrow.arbitrator(), arbitrator); // unchanged
+    }
+
+    function test_SetArbitrator_CancelPendingChange() public {
+        escrow.setArbitrator(other);
+        escrow.cancelArbitratorChange();
+        assertEq(escrow.arbitratorChangeDeadline(), 0);
+        assertEq(escrow.pendingArbitrator(), address(0));
+
+        // confirmArbitrator is now a no-op returning the current arbitrator.
+        vm.prank(arbitrator);
+        assertEq(escrow.confirmArbitrator(), arbitrator);
     }
 
     function test_SetDefaultDuration_AffectsNewEscrows() public {
@@ -591,6 +689,8 @@ contract ArcBridgeEscrowTest is Test {
         assertEq(escrow.defaultDuration(), 3 days);
 
         uint256 id = _create(AMOUNT);
+        vm.prank(client);
+        escrow.depositFunds(id);
         (,,,,,,,,,, uint256 _expiresAt) = _fields(id);
         assertEq(_expiresAt, block.timestamp + 3 days);
     }
@@ -687,6 +787,51 @@ contract ArcBridgeEscrowTest is Test {
     function test_EscrowCap_RejectsZero() public {
         vm.expectRevert(ArcBridgeEscrow.InvalidAmount.selector);
         escrow.setMaxEscrowsPerClient(0);
+    }
+
+    function test_EscrowCap_ReleasesSlotOnCancel() public {
+        // Create an unfunded escrow (counts toward the cap), cancel it, and the
+        // slot is freed — the cap limits simultaneous open escrows.
+        vm.prank(client);
+        escrow.createEscrow(freelancer, AMOUNT);
+        assertEq(escrow.clientEscrowCount(client), 1);
+
+        vm.prank(client);
+        escrow.cancelEscrow(1);
+        assertEq(escrow.clientEscrowCount(client), 0);
+
+        // Creating again works after the cancel freed the slot.
+        vm.prank(client);
+        escrow.createEscrow(freelancer, AMOUNT);
+        assertEq(escrow.clientEscrowCount(client), 1);
+    }
+
+    function test_EscrowCap_ReleasesSlotOnRelease() public {
+        uint256 id = _fundedSubmittedApproved(AMOUNT);
+        assertEq(escrow.clientEscrowCount(client), 1);
+
+        vm.prank(client);
+        escrow.releaseFunds(id);
+        assertEq(escrow.clientEscrowCount(client), 0);
+    }
+
+    function test_EscrowCap_ReleasesSlotOnDisputeResolution() public {
+        uint256 id = _createAndFund(AMOUNT);
+        vm.prank(freelancer);
+        escrow.disputeEscrow(id);
+        assertEq(escrow.clientEscrowCount(client), 1);
+
+        vm.prank(arbitrator);
+        escrow.resolveDispute(id, true);
+        assertEq(escrow.clientEscrowCount(client), 0);
+    }
+
+    function test_EscrowCap_ReleasesSlotOnClaimAfterExpiry() public {
+        uint256 id = _fundedSubmitted(AMOUNT);
+        _warpToExpiry(id);
+        vm.prank(freelancer);
+        escrow.claimAfterExpiry(id);
+        assertEq(escrow.clientEscrowCount(client), 0);
     }
 
     // ---------------- rescue ----------------

@@ -4,6 +4,8 @@ import { USDC_ADDRESS } from "./constants";
 import { USDC_ABI } from "./USDCABI";
 import { toast } from "../lib/toast";
 
+const ARC_CHAIN_ID = 5042002;
+
 export function resolveWalletProvider(providerSource) {
   return providerSource ?? (typeof window !== "undefined" ? window.ethereum : null);
 }
@@ -11,6 +13,64 @@ export function resolveWalletProvider(providerSource) {
 export function getBrowserProvider(providerSource) {
   const source = resolveWalletProvider(providerSource);
   return source ? new BrowserProvider(source) : null;
+}
+
+/**
+ * Verify the connected wallet is on Arc (chain 5042002) before a signed
+ * transaction. Returns { ok: true } when on the right network, otherwise an
+ * error message (and attempts a wallet switch). Prevents silently submitting
+ * escrow txs on the wrong chain (e.g. after the CCTP bridge leaves the wallet
+ * on Base/Ethereum Sepolia).
+ */
+export async function ensureArcNetwork(providerSource) {
+  const provider = getBrowserProvider(providerSource);
+  if (!provider) return { ok: false, message: "Please connect a wallet first" };
+
+  try {
+    const network = await provider.getNetwork();
+    if (Number(network.chainId) === ARC_CHAIN_ID) return { ok: true };
+
+    const rawProvider = resolveWalletProvider(providerSource);
+    try {
+      await rawProvider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0x" + ARC_CHAIN_ID.toString(16) }],
+      });
+    } catch (switchErr) {
+      if (switchErr?.code === 4902) {
+        await rawProvider.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: "0x" + ARC_CHAIN_ID.toString(16),
+              chainName: "Arc Testnet",
+              rpcUrls: ["https://rpc.testnet.arc.network"],
+              nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+              blockExplorerUrls: ["https://testnet.arcscan.app"],
+            },
+          ],
+        });
+        await rawProvider.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0x" + ARC_CHAIN_ID.toString(16) }],
+        });
+      } else {
+        throw switchErr;
+      }
+    }
+
+    return {
+      ok: false,
+      message: "Switch your wallet to Arc Network (Chain ID 5042002) and try again.",
+    };
+  } catch (err) {
+    console.error("network check error:", err);
+    return {
+      ok: false,
+      message:
+        err?.shortMessage || err?.reason || err?.message || "Wrong network — please switch to Arc Network (5042002).",
+    };
+  }
 }
 
 export async function readWalletSnapshot(providerSource, connectedAddress = null) {

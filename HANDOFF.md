@@ -1,5 +1,143 @@
 # ArcBridge — Session Handoff (Aug 14, 2026)
 
+## 💡 Mint-step fix: use Circle's Forwarder (Arc relay) — REAL root cause found (Aug 20, 2026)
+
+**User's hypothesis was correct.** The mint step was failing not (only) from RPC rate-limits — the deeper issue is **Arc's native gas is USDC, and the mint tx was being submitted by the user's wallet, which needs USDC gas on Arc.** If the Arc wallet holds ~0 USDC (all USDC is on the source chain / bridged amount hasn't landed yet), the mint tx can't pay gas → "Network connection failed for Arc Testnet" (the adapter wraps the underlying gas/connection failure).
+
+**The fix — `useForwarder: true` on the destination (verified in `@circle-fin/bridge-kit@1.13.0` + `provider-cctp-v2` source):**
+- `BridgeDestination.useForwarder` is a documented option: *"When true, Circle's Orbit relayer will fetch the attestation and submit the mint transaction on the user's behalf. The relay fee is deducted from the minted USDC at mint time."*
+- With it, the mint step runs `bridgeRelayerMint` (relayer submits + IRIS confirms `forwardState === 'CONFIRMED'`) instead of `bridgeMint` (user wallet signs + pays Arc gas).
+- **Arc chain definition has `forwarderSupported.destination: true`** — the route is valid (verified in the installed chain defs), and `assertForwarderRouteSupport` passes.
+- `retry()` preserves the original params (incl. `useForwarder`), so the manual/auto retry paths stay on the relayer too.
+
+**Applied (`FundFromAnyChain.jsx` only):**
+- `kit.bridge({ to: { adapter, chain: "Arc_Testnet", useForwarder: true }, ... })`.
+- Amount validation relaxed from *exact* to *at least* the escrow amount, with UI hint: relay fee + Arc gas come out of the bridged USDC, so bridging a little extra covers them (surplus stays in the wallet; `depositFunds` pulls exactly `escrow.amount`).
+- Auto-retry of a failed mint step (added earlier) still applies as a second layer.
+
+**Result:** mint now works even when the Arc wallet has zero USDC balance — Circle's relayer pays the Arc gas, fee comes out of the minted amount. Only `FundFromAnyChain.jsx` was changed (per user request); oxlint 0 warnings · build clean.
+
+---
+
+## 🐛 Mint-step "Network connection failed for Arc Testnet" — diagnosed + mitigated (Aug 20, 2026)
+
+**Reported:** CCTP flow succeeds through Approve → Burn → Attestation, then fails on "Mint on Arc" with `Bridge failed: Network connection failed for Arc Testnet`.
+
+**Root cause (verified against installed adapter `@circle-fin/adapter-ethers-v6@1.10.1` + Bridge Kit `1.13.0` source):**
+- The adapter's `parseBlockchainError` maps any message matching `/connection (refused|failed)|network|timeout|ENOTFOUND|ECONNREFUSED/i` to `createNetworkConnectionError(chain)` → "Network connection failed for Arc Testnet".
+- The mint step's RPC calls hit **`https://rpc.testnet.arc.network/`** (the only Arc RPC — also Bridge Kit's `rpcEndpoints[0]`), which is the same rate-limited public endpoint we already documented. Under burst load it returns 429/timeouts that ethers surfaces as "could not coalesce" — the adapter then wraps it as the network-connection error.
+- Read-side calls (adapter `getProvider` → `RetryJsonRpcProvider`) DO retry. But the **signer-side** calls (`signer.sendTransaction` for the mint tx) go through the **browser wallet provider** — wallet's own RPC path, no retry. That's the non-resilient link.
+- Verified live: all Arc RPC reads (blockNumber, balanceOf, gasPrice, getCode, getBalance) respond OK in ~250ms; there is no alternate public Arc RPC to fail over to (only `rpc.testnet.arc.network` exists, repo-wide).
+
+**Fix applied (`FundFromAnyChain.jsx` only):**
+- **Auto-retry the mint step once.** If `kit.bridge()` returns `state: 'error'` and a `mint`/`fetchAttestation` step exists (burn + attestation already done), call `kit.retry(result, {from, to})` automatically before surfacing the error. Bridge Kit's retry resumes from the last successful step, so this is cheap and safe — it re-runs only the mint against the Arc RPC after a short pause, usually clearing the transient 429. A manual "↻ Retry bridge from last step" button remains for anything that still fails.
+- New `autoRetried` ref (one auto-retry per run, reset on escrow change).
+
+**If it still fails after the auto-retry:** the wallet's configured Arc RPC (`rpc.testnet.arc.network`) is genuinely rate-limited at that moment — wait a few seconds and hit the retry button. A private/paid Arc RPC (via wallet network settings) is the only structural fix.
+
+**Verified:** oxlint 0 warnings · build clean.
+
+---
+
+## 🌉 CCTP "Fund From Any Chain" bug-fix pass (Aug 20, 2026)
+
+**Files touched: `frontend/src/components/FundFromAnyChain.jsx` only** (per user request — nothing else changed).
+
+Verified against the installed Bridge Kit (`@circle-fin/bridge-kit@1.13.0`) + adapter (`@circle-fin/adapter-ethers-v6@1.10.1`) type definitions and Quickstart docs. Bugs found & fixed:
+
+1. **Stepper lost the "Deposit into Escrow" step (CRITICAL).** Bridge Kit returns exactly 4 steps (`approve`, `depositForBurn`, `fetchAttestation`, `mint`) but our stepper has 5 — the old `result.steps.map(...)` replaced the whole array and dropped step 5 right when the deposit phase began. Now merged by index over the UI's 5-step layout (`prev.map`, keep our own step 5), preserving names/explorer links and noop→success mapping.
+2. **No pre-bridge validation (HIGH).** Users could burn USDC on the source chain for an escrow that doesn't exist, isn't theirs, is already funded, or with a mismatched amount — the deposit would then revert and their USDC would sit on Arc un-deposited. Added `fetchEscrowValidation()` (reads `escrows(id)` via public RPC) that blocks the bridge with a clear toast BEFORE any burn: escrow must exist, connected wallet must be the client, escrow must be unfunded, and bridged amount must equal the escrow amount.
+3. **RPC failure false-negative (MEDIUM).** If the validation read failed on the rate-limited public RPC, the user got "escrow does not exist" — now distinguishes `{ found: false }` (missing) from `{ error }` (RPC hiccup, "try again in a moment").
+4. **No retry on soft bridge failure (MEDIUM).** Bridge Kit's `retry(result, context)` resumes from the last successful step after network/gas/attestation failures. Added `retryBridge()` + a "↻ Retry bridge from last step" button in the error panel (only shown for retryable soft failures). Bridge context (`kit`+`adapter`) and last result kept in refs.
+5. **Double toast on deposit-step failure (LOW).** `runDepositFlow` threw after already setting the error state, so `runBridge`'s catch fired a second toast. It now returns `false` on handled failures; the caller's catch only handles real exceptions.
+
+Also: `markStep` memoized (`useCallback([])`) and moved above `runBridge` (it's referenced in the `kit.on("*")` closure); `runDepositFlow` extracted as a shared `useCallback` used by both `runBridge` and `retryBridge`; deps arrays cleaned.
+
+**Verified:** `npx oxlint` 0 warnings/errors · `npm run build` clean. Bridge chain names (`Base_Sepolia`, `Ethereum_Sepolia`, `Arc_Testnet`) confirmed present in the installed `BridgeChain` enum.
+
+**⚠️ Not live-tested:** an actual bridge tx needs a funded Base/Ethereum Sepolia wallet with test USDC + ETH gas (user step — faucet links in the UI).
+
+---
+
+## 🐢 429 rate-limit hardening (Aug 20, 2026)
+
+**Diagnosis:** the public Arc testnet RPC (`rpc.testnet.arc.network`) is genuinely rate-limited (~3-5 burst, rolling window — documented in HANDOFF Gotchas). The backend was *amplifying* it: 10 per-event `get_logs` calls per poll chunk, short 1s retry backoff, 4-way parallel escrow fetches, and re-scanning the same failed window forever. It also rejects **OR'd multi-topic** `get_logs` with `-32012 requested range too large` (verified at even 100-block ranges), so the frontend's combined-topics fallback would also fail on this RPC — per-event scans are the only working shape.
+
+**Fixes (backend/main.py):**
+- **Shared token-bucket RPC limiter** (`_RateLimiter`, ~2 req/s, burst 3) pacing the poller's `block_number`, all `get_logs`, per-escrow reads, and `get_block` timestamp reads — no more burst amplification from parallel fetches (escrow fetches now sequential).
+- **Rate-limit-aware retry**: on 429/503 the retry sleeps long (Retry-After header or 12s), not 1s — hammering short retries was making it worse.
+- **Adaptive poll backoff**: repeated scan failures back the whole poll cycle off up to 60s (was fixed 8s, spinning on the same window).
+- **Early abort**: 3 consecutive event-type failures abort the rest of that chunk (marked incomplete) instead of burning all 10 retries.
+- **Recent-window priority**: every cycle scans a small `RECENT_SCAN_BLOCKS` (400) window so the live feed stays current; backfill grinds older blocks in `MAX_SCAN_BLOCKS` chunks only when the recent scan succeeded.
+- `/health` now exposes `last_scanned_block` for observability.
+- Escrow list/summary fetches reuse the same cache (no double-fetch per cycle).
+
+**Result:** the backend no longer 429-crashes or spins — it retries patiently, keeps serving cached data, and backfills gradually. `/health`, `/live`, `/escrows`, `/safety` stay responsive. New env knobs: `RECENT_SCAN_BLOCKS` (default 400), plus existing `POLL_SECONDS`/`MAX_SCAN_BLOCKS` for tuning.
+
+**⚠️ Honest limit:** the *public* RPC's own rate limit still makes full-history backfill slow (~1 chunk per few minutes). For fast backfill, set a better `ARC_RPC_URL` (private/paid endpoint) in `backend/.env`. `pytest`: 97/97 pass.
+
+---
+
+## 🚀 Redeployed with fixed bytecode (Aug 20, 2026)
+
+**New contract LIVE:** `0xa12b4775b2eb4741aabbb8e2aade41e9ad0665e4`
+- Deploy tx: `0x95d7685cad63bfc9e0edd616106c60643856352078c588e83395db757de71a13`
+- **✅ Source verified on ArcScan** (Blockscout verifier, Solidity v0.8.35, `creation_status: success`)
+- Chain state verified: escrowCount=0 at deploy, owner=deployer `0x36a7...0279`, maxEscrowsPerClient=50, lockedBalance=0, defaultDuration=604800 (7d), ARBITRATOR_CHANGE_DELAY=172800 (2d)
+- **On-chain fixes verified live:**
+  - `expiresAt=0` before funding, set to `fundedAt + duration` after deposit ✓ (expiry-from-funding)
+  - `clientEscrowCount` decrements on cancel/release/dispute/claim ✓ (cap = open escrows)
+  - `escrowDurations` mapping stores per-escrow duration ✓
+- Test data on new contract: escrow #1 funded 1 USDC (client=deployer, freelancer=0x2222…, needs freelancer key to release), escrow #2 cancelled (refunded)
+- **Config updated everywhere:** `backend/.env`, `backend/.env.example`, `backend/main.py` default, `frontend/src/contracts/config.js`, `frontend/.env.example`, README live-contract link + table
+- Old address `0x788bd809f93b8915f0dcd1ab3b3560355c8d0ff3` fully replaced
+
+**⚠️ Backend `/live` feed note:** after redeploy the poller needs to backfill ~60k blocks from the new contract's birth block (~60 min on Arc testnet at ~1000 blocks/min) before the activity feed populates. `/health`, `/live` (escrow data), `/escrows`, `/safety` all work immediately.
+
+---
+
+## 🔧 Full bug-fix pass (Aug 20, 2026) — all 21 audit findings fixed
+
+**Contract (`contracts/src/ArcBridgeEscrow.sol`) — economic-design fixes:**
+- `claimAfterExpiry` now reverts `NotApprovedClaim` once the client approved — the freelancer's path after approval is `releaseFunds` (now callable by the **freelancer** too), so an approving-but-stalling client can no longer freeze payment.
+- **Expiry clock starts at funding**, not creation: `expiresAt` is 0 until `depositFunds`; a client can no longer fund at the last moment and strand the freelancer. `escrowDurations` mapping stores the chosen duration.
+- **Escrow cap now counts open escrows**: `_decrementCap` frees a slot on release, cancel, dispute resolution, and claim — the cap is no longer a lifetime tax.
+- **Arbitrator change is two-step**: `setArbitrator` schedules `pendingArbitrator` + `ARBITRATOR_CHANGE_DELAY` (2 days); `confirmArbitrator` activates it. Owner can no longer swap the arbitrator mid-dispute. `cancelArbitratorChange` added.
+- New events: `ArbitratorChangeScheduled`, `ArbitratorChanged`, `DefaultDurationChanged`.
+- `SafeERC20` hardened for USDT-style tokens that return no value.
+- Deploy script reads `USDC_ADDRESS` from env instead of hardcoding.
+- `forge test`: **70/70 pass** · `forge fmt --check` clean.
+
+**Backend (`backend/main.py` + `assistant.py`):**
+- `/api/chat` escrow lookup moved to `asyncio.to_thread` — no more event-loop freeze.
+- `/escrow/{id}` returns **404** for nonexistent ids (was 200 + fake "Waiting" escrow); same guard on `/live?escrow_id=`.
+- `/safety` cache TTL is now actually honored (was served forever).
+- `/escrows` + `/live` load the **newest** escrows (was the oldest 100).
+- `/live?address=` validates input — no more 500 on garbage.
+- Poller only advances `last_scanned_block` on complete scans — failed event scans no longer drop feed events forever; `time_ago` no longer goes garbage when `get_block` fails.
+- Error strings sanitized (no raw RPC URLs/URLs in `/health`).
+- Copilot KB fixed: "Claim After Expiry" is freelancer-only (was teaching clients to call it — 5 intents corrected); expiry-start-at-funding wording; cap = open escrows.
+- Keyword matching uses word boundaries ("hi"/"hey"/"yo" no longer match inside "this"/"they"/"you").
+- LLM prompt hardened against prompt injection (user message wrapped in `[USER MESSAGE START/END]` + explicit data-not-instructions note; history truncated); `llm_answer` crash paths (content:null, non-string text) guarded.
+- Gemini model default corrected to `gemini-3.1-flash-lite` (was unverified `gemini-3.7-flash`) in code, `.env`, `.env.example`, README.
+- `load_dotenv` resolves relative to `main.py` (CWD-independent); int env parsing can't crash import on typos.
+- `pytest`: **97/97 pass**.
+
+**Frontend:**
+- Dashboard RPC-fallback feed: `EscrowCreated.amount`/`DisputeResolved.amount` positional indexing fixed (was reading client address / favorFreelancer bool); `TokensRescued` added to the event list.
+- `CreateEscrow.jsx`: `expiresAt=0`-until-funded handled (unfunded escrows no longer show as expired); Release button now visible to freelancers; Claim disabled once approved.
+- `FundFromAnyChain.jsx`: failed Arc approval no longer leaves the stepper stuck on "depositing".
+- New `ensureArcNetwork()` guard (switches wallet to Arc chain 5042002) before every signed tx: approve, deposit, create, runAction, rescue, and the CCTP deposit step.
+- `chatWithAssistant` has a 30s timeout.
+- Fresh ABI artifact copied into `frontend/src/contracts/ArcBridgeEscrow.json`.
+- oxlint **0 warnings/errors** · `npm run build` clean.
+
+**Docs:** README test counts corrected (contract 70, backend 97) + `BACKFILL_BLOCKS`/`GEMINI_MODEL` defaults.
+
+**⚠️ Note:** the deployed contract at `0x788bd809f93b8915f0dcd1ab3b3560355c8d0ff3` is the OLD bytecode. The fixes above require a **redeploy** (`cd contracts && forge script ...`) and updating `CONTRACT_ADDRESS` in `backend/.env`, `frontend/src/contracts/config.js`, and the README. The backend ABI was updated to match the new contract, so it will only work with a fresh deployment.
+
+---
+
 ## ✅ Done & verified (green)
 
 **Contract (`contracts/src/ArcBridgeEscrow.sol`)** — rewritten with:

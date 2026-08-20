@@ -41,16 +41,23 @@ export async function fetchSafety({ signal } = {}) {
 }
 
 export async function chatWithAssistant(message, history = []) {
-  const response = await fetch(`${API_BASE}/api/chat`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ message, history }),
-  });
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(text || `Request failed with status ${response.status}`);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  try {
+    const response = await fetch(`${API_BASE}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ message, history }),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(text || `Request failed with status ${response.status}`);
+    }
+    return response.json();
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return response.json();
 }
 
 export function getApiBase() {

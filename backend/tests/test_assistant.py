@@ -104,6 +104,32 @@ def test_match_intent_unknown_returns_none():
     assert assistant.match_intent("quantum chromodynamics of escrow tokens") is None
 
 
+def test_match_intent_short_keywords_use_word_boundaries():
+    # "hi" must not match inside "this/which", "hey" inside "they", "yo" inside "you".
+    assert assistant.match_intent("which option is better") is None
+    assert assistant.match_intent("they took my money") is None
+    assert assistant.match_intent("you can do it") is None
+    # Standalone greeting words still match.
+    assert assistant.match_intent("hi")["intent"] == "greeting"
+    assert assistant.match_intent("hey there")["intent"] == "greeting"
+
+
+def test_claim_after_expiry_kb_is_freelancer_only():
+    answer = assistant.rule_based_answer("who can claim after expiry", CONTEXT)
+    assert answer is not None
+    lower = answer.lower()
+    # The answer must describe the freelancer claim path, not a client claim.
+    assert "freelancer" in lower
+    assert "cancel" in lower  # the client path after expiry is cancel
+
+
+def test_escrow_cap_kb_describes_open_escrows():
+    answer = assistant.rule_based_answer("escrow cap kya hai", CONTEXT)
+    assert answer is not None
+    lower = answer.lower()
+    assert "open" in lower or "simultaneous" in lower
+
+
 def test_rule_based_answer_formats_context():
     answer = assistant.rule_based_answer("contract address kya hai", CONTEXT)
     assert answer is not None

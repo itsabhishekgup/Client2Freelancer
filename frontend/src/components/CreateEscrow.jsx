@@ -4,7 +4,7 @@ import { Contract, JsonRpcProvider, parseUnits } from "ethers";
 import escrowArtifact from "../contracts/ArcBridgeEscrow.json";
 import { arcTestnet } from "../contracts/arcChain";
 import { CONTRACT_ADDRESS } from "../contracts/config";
-import { approveUSDC, getBrowserProvider } from "../contracts/wallet";
+import { approveUSDC, ensureArcNetwork, getBrowserProvider } from "../contracts/wallet";
 import { useWalletBridge } from "../hooks/useWalletBridge";
 import { toast, updateToast } from "../lib/toast";
 
@@ -129,7 +129,12 @@ function CreateEscrow({
   );
   const isArbitrator = Boolean(arbitrator && arbitrator.toLowerCase() === wallet);
   const isParticipant = isClient || isFreelancer;
-  const isExpired = escrow ? Math.floor(Date.now() / 1000) >= Number(escrow.expiresAt || 0) : false;
+  // expiresAt is 0 until the client funds the escrow (the expiry clock starts
+  // at funding), so an unfunded escrow is never "expired".
+  const isExpired =
+    escrow && Number(escrow.expiresAt) > 0
+      ? Math.floor(Date.now() / 1000) >= Number(escrow.expiresAt)
+      : false;
 
   const hasId = Boolean(escrowValue && !Number.isNaN(escrowNum) && escrowNum > 0);
 
@@ -162,6 +167,12 @@ function CreateEscrow({
         return;
       }
 
+      const net = await ensureArcNetwork(walletProvider);
+      if (!net.ok) {
+        updateToast(toastId, { message: net.message, type: "warning", duration: 6000 });
+        return;
+      }
+
       const result = await approveUSDC(amount, walletProvider);
 
       if (result?.ok) {
@@ -189,6 +200,12 @@ function CreateEscrow({
     if (!provider) {
       toast("Please connect a wallet first", "warning");
       openConnect();
+      return null;
+    }
+
+    const net = await ensureArcNetwork(walletProvider);
+    if (!net.ok) {
+      toast(net.message, "warning");
       return null;
     }
 
@@ -293,6 +310,12 @@ function CreateEscrow({
             duration: 4500,
           });
           openConnect();
+          return;
+        }
+
+        const net = await ensureArcNetwork(walletProvider);
+        if (!net.ok) {
+          updateToast(toastId, { message: net.message, type: "warning", duration: 6000 });
           return;
         }
 
@@ -475,7 +498,7 @@ function CreateEscrow({
       label: "Release Funds",
       className: "premium-action-btn--release",
       onClick: releaseFunds,
-      visible: isClient,
+      visible: isClient || isFreelancer,
       disabled: !hasId || !escrow || !escrow.approved || escrow.released || escrow.disputed,
       title: !hasId
         ? "Enter escrow ID first"
@@ -483,7 +506,9 @@ function CreateEscrow({
           ? "Approve the work first"
           : escrow?.released
             ? "Already released"
-            : "Client: pay the freelancer",
+            : isClient
+              ? "Client: pay the freelancer"
+              : "Freelancer: release the approved funds",
     },
     {
       key: "cancel",
@@ -514,18 +539,20 @@ function CreateEscrow({
       onClick: claimAfterExpiry,
       visible: isFreelancer,
       disabled:
-        !hasId || !escrow || !escrow.funded || !escrow.workSubmitted || closed || escrow.disputed || !isExpired,
+        !hasId || !escrow || !escrow.funded || !escrow.workSubmitted || escrow.approved || closed || escrow.disputed || !isExpired,
       title: !hasId
         ? "Enter escrow ID first"
         : !escrow?.funded
           ? "Wait for the client to fund the escrow"
           : !escrow?.workSubmitted
             ? "Submit your work first"
-            : closed
-              ? "Escrow is closed"
-              : !isExpired
-                ? `Claim unlocks at expiry (${new Date(Number(escrow.expiresAt) * 1000).toLocaleString()})`
-                : "Freelancer: claim funds after expiry",
+            : escrow?.approved
+              ? "Work approved — use Release Funds instead"
+              : closed
+                ? "Escrow is closed"
+                : !isExpired
+                  ? `Claim unlocks at expiry (${new Date(Number(escrow.expiresAt) * 1000).toLocaleString()})`
+                  : "Freelancer: claim funds after expiry",
     },
     {
       key: "dispute",

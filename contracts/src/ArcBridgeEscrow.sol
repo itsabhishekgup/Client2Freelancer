@@ -13,14 +13,21 @@ library SafeERC20 {
     error SafeERC20TransferFailed();
     error SafeERC20TransferFromFailed();
 
+    // Handles both tokens that return bool and tokens that return nothing
+    // (USDT-style): the call must not revert and, when it does return data,
+    // the data must decode to true.
     function safeTransfer(IERC20 token, address to, uint256 value) internal {
-        bool success = token.transfer(to, value);
-        if (!success) revert SafeERC20TransferFailed();
+        (bool success, bytes memory data) = address(token).call(abi.encodeCall(IERC20.transfer, (to, value)));
+        if (!success || (data.length > 0 && !abi.decode(data, (bool)))) {
+            revert SafeERC20TransferFailed();
+        }
     }
 
     function safeTransferFrom(IERC20 token, address from, address to, uint256 value) internal {
-        bool success = token.transferFrom(from, to, value);
-        if (!success) revert SafeERC20TransferFromFailed();
+        (bool success, bytes memory data) = address(token).call(abi.encodeCall(IERC20.transferFrom, (from, to, value)));
+        if (!success || (data.length > 0 && !abi.decode(data, (bool)))) {
+            revert SafeERC20TransferFromFailed();
+        }
     }
 }
 
@@ -74,8 +81,11 @@ contract ReentrancyGuard {
 /// @dev State machine:
 ///         created → funded → workSubmitted → approved → released
 ///         funded (expired, no work)      → cancelEscrow → refunded
-///         funded + workSubmitted (expired) → claimAfterExpiry → released
+///         funded + workSubmitted + expired + !approved → claimAfterExpiry → released
+///         approved (released by client or freelancer)  → released
 ///         funded → disputeEscrow → resolveDispute → released | refunded
+///      The expiry timelock starts when funds are deposited, so a freelancer
+///      always gets the full duration to submit work after the client funds.
 contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
 
@@ -104,6 +114,11 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
     error RescueZeroAddress();
     error NothingToRescue();
     error EscrowCapExceeded();
+    error TimelockPending();
+    error NotApprovedClaim();
+
+    /// @notice How long an arbitrator change must wait before it is active.
+    uint256 public constant ARBITRATOR_CHANGE_DELAY = 2 days;
 
     struct Escrow {
         address client;
@@ -124,11 +139,20 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
     uint256 public defaultDuration;
     uint256 public maxEscrowsPerClient;
     address public arbitrator;
+    // Two-step arbitrator change: setArbitrator schedules pendingArbitrator and
+    // a deadline; confirmArbitrator makes it active after the delay elapses.
+    // Guards against the owner swapping the arbitrator mid-dispute to control
+    // an outcome. Zero deadline means no change is pending.
+    address public pendingArbitrator;
+    uint256 public arbitratorChangeDeadline;
     // Sum of amounts locked in funded, unreleased escrows. Kept in sync so the
     // owner can rescue accidentally-sent tokens without ever touching client
     // funds, and so rescueTokens never needs an O(n) loop over escrows.
     uint256 public lockedBalance;
     mapping(uint256 => Escrow) public escrows;
+    // Expiry duration (seconds) chosen at creation; the actual expiresAt is
+    // computed when funds are deposited, so the clock starts at funding.
+    mapping(uint256 => uint256) public escrowDurations;
     mapping(address => uint256) public clientEscrowCount;
 
     event EscrowCreated(uint256 indexed escrowId, address indexed client, address indexed freelancer, uint256 amount);
@@ -141,6 +165,9 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
     event DisputeResolved(uint256 indexed escrowId, bool favorFreelancer, uint256 amount);
     event TokensRescued(address indexed token, address indexed recipient, uint256 amount);
     event MaxEscrowsPerClientUpdated(uint256 maxEscrows);
+    event ArbitratorChangeScheduled(address indexed newArbitrator);
+    event ArbitratorChanged(address indexed newArbitrator);
+    event DefaultDurationChanged(uint256 newDuration);
 
     constructor(address _usdc) Ownable(msg.sender) {
         if (_usdc == address(0)) revert InvalidUSDC();
@@ -155,16 +182,43 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
         _;
     }
 
-    /// @notice Set who may resolve disputes. Owner only.
+    /// @notice Schedule an arbitrator change. The new arbitrator becomes active
+    ///         only after confirmArbitrator is called once ARBITRATOR_CHANGE_DELAY
+    ///         has elapsed, so the owner cannot swap the arbitrator mid-dispute
+    ///         to control an outcome. Owner only.
+    /// @dev Calling again reschedules: the previously pending change is
+    ///      replaced and the deadline is pushed out.
     function setArbitrator(address _arbitrator) external onlyOwner {
         if (_arbitrator == address(0)) revert InvalidArbitrator();
-        arbitrator = _arbitrator;
+        pendingArbitrator = _arbitrator;
+        arbitratorChangeDeadline = block.timestamp + ARBITRATOR_CHANGE_DELAY;
+        emit ArbitratorChangeScheduled(_arbitrator);
+    }
+
+    /// @notice Confirm a pending arbitrator change after the delay elapsed.
+    ///         No-op (returns the current arbitrator) when nothing is pending.
+    function confirmArbitrator() external returns (address) {
+        if (arbitratorChangeDeadline == 0) return arbitrator;
+        if (block.timestamp < arbitratorChangeDeadline) revert TimelockPending();
+        address newArbitrator = pendingArbitrator;
+        arbitrator = newArbitrator;
+        delete pendingArbitrator;
+        arbitratorChangeDeadline = 0;
+        emit ArbitratorChanged(newArbitrator);
+        return newArbitrator;
+    }
+
+    /// @notice Cancel a pending arbitrator change. Owner only.
+    function cancelArbitratorChange() external onlyOwner {
+        delete pendingArbitrator;
+        arbitratorChangeDeadline = 0;
     }
 
     /// @notice Set the default expiry duration for new escrows. Owner only.
     function setDefaultDuration(uint256 _duration) external onlyOwner {
         if (_duration == 0) revert InvalidAmount();
         defaultDuration = _duration;
+        emit DefaultDurationChanged(_duration);
     }
 
     /// @notice Set how many escrows a single wallet may create (spam cap).
@@ -199,7 +253,10 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
         return createEscrowWithDeadline(f, a, defaultDuration);
     }
 
-    /// @notice Create an escrow with a custom expiry duration in seconds.
+    /// @notice Create an escrow with a custom expiry duration in seconds. The
+    ///         expiry clock starts when the client deposits funds, so a client
+    ///         can never fund at the last moment and leave the freelancer no
+    ///         time to submit work.
     function createEscrowWithDeadline(address f, uint256 a, uint256 duration) public returns (uint256) {
         if (f == address(0)) revert InvalidFreelancer();
         if (a == 0) revert InvalidAmount();
@@ -222,22 +279,27 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
             refunded: false,
             disputed: false,
             createdAt: block.timestamp,
-            expiresAt: block.timestamp + duration
+            expiresAt: 0
         });
+        escrowDurations[id] = duration;
         emit EscrowCreated(id, msg.sender, f, a);
         return id;
     }
 
-    /// @notice Client locks the escrow amount into the contract.
+    /// @notice Client locks the escrow amount into the contract. The expiry
+    ///         clock starts here (expiresAt is set at funding), so the
+    ///         freelancer always has the full duration to submit work.
     function depositFunds(uint256 id) external nonReentrant {
         Escrow storage e = escrows[id];
         if (e.client != msg.sender) revert NotClient();
         if (e.funded) revert AlreadyFunded();
         if (e.refunded) revert AlreadyRefunded();
         if (e.disputed) revert AlreadyDisputed();
-        if (_expired(e)) revert EscrowExpired();
+        uint256 duration = escrowDurations[id];
+        if (duration == 0) revert EscrowExpired();
         usdc.safeTransferFrom(msg.sender, address(this), e.amount);
         e.funded = true;
+        e.expiresAt = block.timestamp + duration;
         lockedBalance += e.amount;
         emit FundsDeposited(id, e.amount);
     }
@@ -267,16 +329,19 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
         emit WorkApproved(id);
     }
 
-    /// @notice Client releases the funds to the freelancer after approval.
+    /// @notice Release the funds to the freelancer. The client releases after
+    ///         approving; once approved, the freelancer can also release so a
+    ///         stalling client cannot freeze payment indefinitely.
     function releaseFunds(uint256 id) external nonReentrant {
         Escrow storage e = escrows[id];
-        if (e.client != msg.sender) revert NotClient();
+        if (e.client != msg.sender && e.freelancer != msg.sender) revert NotParticipant();
         if (!e.approved) revert NotApproved();
         if (e.released) revert AlreadyReleased();
         if (e.disputed) revert AlreadyDisputed();
         e.released = true;
         lockedBalance -= e.amount;
         usdc.safeTransfer(e.freelancer, e.amount);
+        _decrementCap(e.client);
         emit FundsReleased(id, e.amount);
     }
 
@@ -298,6 +363,7 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
 
         uint256 refund = e.funded ? e.amount : 0;
         e.refunded = true;
+        _decrementCap(e.client);
         if (refund > 0) {
             lockedBalance -= e.amount;
             usdc.safeTransfer(e.client, refund);
@@ -305,8 +371,11 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
         emit EscrowCancelled(id, refund);
     }
 
-    /// @notice After expiry, the freelancer can claim the locked funds once work
-    ///         was submitted and the client never approved/released them.
+    /// @notice After expiry, the freelancer can claim the locked funds when work
+    ///         was submitted and the client never approved or released them.
+    ///         Once the client has approved, the freelancer's path is
+    ///         releaseFunds (callable by the freelancer) — not a unilateral
+    ///         claim past the timelock.
     function claimAfterExpiry(uint256 id) external nonReentrant {
         Escrow storage e = escrows[id];
         if (e.freelancer != msg.sender) revert NotFreelancer();
@@ -314,10 +383,12 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
         if (!e.workSubmitted) revert NotSubmitted();
         if (e.released || e.refunded) revert AlreadyReleased();
         if (e.disputed) revert AlreadyDisputed();
+        if (e.approved) revert NotApprovedClaim();
         if (!_expired(e)) revert NotExpired();
         e.released = true;
         lockedBalance -= e.amount;
         usdc.safeTransfer(e.freelancer, e.amount);
+        _decrementCap(e.client);
         emit FundsReleased(id, e.amount);
     }
 
@@ -348,7 +419,15 @@ contract ArcBridgeEscrow is ReentrancyGuard, Ownable {
             e.refunded = true;
             usdc.safeTransfer(e.client, e.amount);
         }
+        _decrementCap(e.client);
         emit DisputeResolved(id, favorFreelancer, e.amount);
+    }
+
+    /// @notice Release a closed escrow's slot in the client's cap so the cap
+    ///         limits simultaneous open escrows instead of a lifetime count.
+    function _decrementCap(address client) internal {
+        uint256 count = clientEscrowCount[client];
+        if (count > 0) clientEscrowCount[client] = count - 1;
     }
 
     function _expired(Escrow storage e) internal view returns (bool) {

@@ -58,12 +58,15 @@ def make_raw(idx, **overrides):
 
 
 def test_health_returns_fields(client, monkeypatch):
-    monkeypatch.setattr(main, "state", SimpleNamespace(healthy=True, latest_block=100, error=""))
+    monkeypatch.setattr(main, "state", SimpleNamespace(
+        healthy=True, latest_block=100, last_scanned_block=50, error=""
+    ))
     r = client.get("/health")
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True
     assert body["latest_block"] == 100
+    assert body["last_scanned_block"] == 50
     assert body["contract_address"] == main.CONTRACT_ADDRESS
     assert body["rpc_url"] == main.ARC_RPC_URL
 
@@ -84,8 +87,35 @@ def test_escrow_detail_found(client, monkeypatch):
 def test_escrow_detail_not_found(client, monkeypatch):
     monkeypatch.setattr(main, "contract", FakeContract(escrows={}))
     r = client.get("/escrow/99")
+    assert r.status_code == 404
+    assert r.json() == {"detail": "Escrow not found"}
+
+
+def test_escrow_detail_zero_address_placeholder_is_not_found(client, monkeypatch):
+    """The contract returns a zero-address placeholder for nonexistent ids —
+    the API must treat that as 404, not a fake 'Waiting' escrow."""
+    zero = "0x" + "0" * 40
+    fake = FakeContract(escrows={99: make_raw(99, client=zero)})
+    monkeypatch.setattr(main, "contract", fake)
+    r = client.get("/escrow/99")
+    assert r.status_code == 404
+
+
+def test_live_invalid_address_returns_graceful_response(client, monkeypatch):
+    """An invalid address must not 500 the /live endpoint."""
+    monkeypatch.setattr(main, "_summary_cache", {"timestamp": 0.0, "data": None})
+    monkeypatch.setattr(main, "state", SimpleNamespace(
+        healthy=False, latest_block=0, last_synced_at=0, error="", recent_events=[]
+    ))
+    monkeypatch.setattr(main, "usdc", SimpleNamespace(functions=SimpleNamespace(
+        balanceOf=lambda a: SimpleNamespace(call=lambda: 0),
+        allowance=lambda a, s: SimpleNamespace(call=lambda: 0),
+    )))
+    r = client.get("/live", params={"address": "not-an-address"})
     assert r.status_code == 200
-    assert r.json() == {"error": "Escrow not found"}
+    body = r.json()
+    assert body["wallet"]["connected"] is False
+    assert body["wallet"]["error"] == "Invalid address"
 
 
 def test_escrows_list_pagination_and_filters(client, monkeypatch):
