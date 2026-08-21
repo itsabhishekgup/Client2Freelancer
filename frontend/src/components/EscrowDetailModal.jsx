@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { arcTestnet } from "../contracts/arcChain";
-import { formatAmount, shortenAddress } from "../lib/escrowFormat";
+import { formatAmount, formatExpiry, shortenAddress } from "../lib/escrowFormat";
+import { useNow } from "../lib/useNow";
 
 const EXPLORER_URL = arcTestnet.blockExplorers?.default?.url ?? "";
 const explorerLink = (txHash) =>
@@ -63,6 +64,9 @@ function StateChecklist({ escrow }) {
 }
 
 function EscrowDetailModal({ escrow, events = [], onClose }) {
+  const now = useNow();
+  const expiry = escrow?.expiresAt ? formatExpiry(escrow.expiresAt, now) : null;
+
   useEffect(() => {
     if (!escrow) return undefined;
 
@@ -120,7 +124,14 @@ function EscrowDetailModal({ escrow, events = [], onClose }) {
           <DetailRow label="Client" value={escrow.clientText ?? shortenAddress(escrow.client)} />
           <DetailRow label="Freelancer" value={escrow.freelancerText ?? shortenAddress(escrow.freelancer)} />
           <DetailRow label="Created" value={formatTimestamp(escrow.createdAt)} />
-          <DetailRow label="Expires" value={formatTimestamp(escrow.expiresAt)} />
+          <DetailRow
+            label="Expires"
+            value={
+              expiry
+                ? `${formatTimestamp(escrow.expiresAt)} · ${expiry.text}`
+                : formatTimestamp(escrow.expiresAt)
+            }
+          />
           <DetailRow label="On-chain ID" value={String(escrow.id)} />
         </div>
 

@@ -9,6 +9,11 @@ import { baseSepolia, sepolia } from "viem/chains";
 const queryClient = new QueryClient();
 const projectId = import.meta.env.VITE_REOWN_PROJECT_ID || "";
 
+// Whether Reown AppKit was initialized (requires a valid projectId). When it
+// was not, the wallet modal is unavailable and wallet hooks must fall back to
+// window.ethereum instead of calling into uninitialized AppKit.
+export const appKitEnabled = Boolean(projectId);
+
 const appUrl =
   typeof window !== "undefined" ? window.location.origin : "http://localhost:5173";
 

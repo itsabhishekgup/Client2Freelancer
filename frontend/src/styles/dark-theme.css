@@ -3835,6 +3835,52 @@ select:focus {
   color: #fff;
 }
 
+/* Expiry countdown line on compact escrow cards — tone-colored, subtle. */
+.escrow-card-compact-expiry {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 2px 0 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.escrow-card-compact-expiry--ok {
+  color: #7c8ba1;
+}
+
+.escrow-card-compact-expiry--warning {
+  color: #fbbf24;
+}
+
+.escrow-card-compact-expiry--urgent {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.escrow-card-compact-expiry--expired {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+/* Escrow summary panel expiry row (EscrowSummaryPanel). */
+.escrow-expiry-row--ok strong {
+  color: #9aa1ab;
+}
+
+.escrow-expiry-row--warning strong {
+  color: #fbbf24;
+}
+
+.escrow-expiry-row--urgent strong {
+  color: #f87171;
+}
+
+.escrow-expiry-row--expired strong {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
 /* Escrow detail modal */
 .escrow-modal-overlay {
   position: fixed;

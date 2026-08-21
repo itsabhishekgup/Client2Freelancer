@@ -1,4 +1,10 @@
+import { formatExpiry } from "../lib/escrowFormat";
+import { useNow } from "../lib/useNow";
+
 function EscrowSummaryPanel({ escrow, loading, error }) {
+  const now = useNow();
+  const expiry = escrow?.expiresAt ? formatExpiry(escrow.expiresAt, now) : null;
+
   return (
     <section className="card escrow-summary">
       <div className="summary-header">
@@ -48,6 +54,15 @@ function EscrowSummaryPanel({ escrow, loading, error }) {
           {escrow?.status?.label || "Waiting"}
         </strong>
       </div>
+
+      {expiry && (
+        <div
+          className={`summary-item escrow-expiry-row escrow-expiry-row--${expiry.tone}`}
+        >
+          <span>Expiry</span>
+          <strong>{expiry.text}</strong>
+        </div>
+      )}
     </section>
   );
 }

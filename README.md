@@ -35,8 +35,11 @@ ArcBridge is a full-stack escrow protocol that lets clients and freelancers tran
 - 🚀 **Landing page** with 2×2 product showcase
 - 🌑 **Dark futuristic UI** — glassmorphism, purple/blue neon, accent themes
 - 📊 **Analytics dashboard** — wallet overview, escrow summary, activity feed
+- ⏳ **Live expiry countdowns** — every escrow card, the summary panel, and the detail modal show a tone-coded countdown (`Expires in 3d 4h` → amber under 7 days → red under 24h → strikethrough when expired)
+- ⬇️ **CSV export** — one-click download of the currently filtered escrow list (Excel-safe, RFC 4180 escaping)
 - ⚙️ **Settings modal** — accent colors, auto-refresh, compact density, default expiry duration, feed toggle
-- 💸 **Full escrow actions** — create, cancel, dispute, resolve (per-role buttons)
+- 💸 **Full escrow actions** — create, cancel, dispute, resolve (per-role buttons) with pre-flight balance/allowance checks and tx-timeout handling
+- 🛡️ **Error boundary** — an unexpected crash shows a recoverable error screen instead of a white page
 - 🔔 **Toast system** with tx-hash explorer links + pending-confirmation states
 - 🤖 **Escrow Copilot** — floating chat widget (English/Hindi), trained on the full lifecycle incl. troubleshooting, Gemini AI for anything else
 
@@ -56,7 +59,7 @@ ArcBridge is a full-stack escrow protocol that lets clients and freelancers tran
 
 - **Contract** — the single source of truth for escrow state (no off-chain trust)
 - **Backend** — read-optimized API layer: indexes chain state, serves the activity feed, and absorbs RPC rate-limit pain behind a cache
-- **Frontend** — wallet-driven dApp; writes go straight to the contract via wagmi, reads prefer the backend API (with direct RPC fallback)
+- **Frontend** — wallet-driven dApp; writes go straight to the contract via **ethers.js v6** (wagmi/AppKit powers the wallet-connect modal), reads prefer the backend API (with direct RPC fallback)
 
 ---
 
@@ -83,9 +86,9 @@ uvicorn main:app --host 127.0.0.1 --port 8000
 ### 3. Frontend
 ```bash
 cd frontend
-npm install
+pnpm install          # pnpm 10+ (see package.json); npm works too
 cp .env.example .env   # set VITE_REOWN_PROJECT_ID + VITE_BACKEND_URL
-npm run dev            # http://localhost:5173
+pnpm dev               # http://localhost:5173
 ```
 
 ---
@@ -109,10 +112,11 @@ npm run dev            # http://localhost:5173
 | Variable | Purpose |
 |---|---|
 | `VITE_REOWN_PROJECT_ID` | AppKit wallet-connect project id |
-| `VITE_BACKEND_URL` | Backend API base URL |
-| `VITE_RPC_URL` | RPC for direct contract reads |
-| `VITE_CONTRACT_ADDRESS` | Escrow contract address |
-| `VITE_USDC_ADDRESS` | USDC token address |
+| `VITE_BACKEND_URL` | Backend API base URL (defaults to `http://127.0.0.1:8000`) |
+
+> Contract address, USDC address, and the RPC URL are hard-coded in
+> `frontend/src/contracts/{config,constants,arcChain}.js` — update those files
+> when redeploying the contract rather than relying on env vars.
 
 ---
 
@@ -152,10 +156,10 @@ users connect their own wallet (e.g. MetaMask-style injected wallets that
 support Arc Testnet, or WalletConnect). All escrow actions are signed from
 the connected wallet directly.
 
-```bash
-# No extra config needed — the connect modal works out of the box.
-cd backend && python -m uvicorn main:app --reload --port 8000
-```
+No extra config needed — the connect modal works out of the box once
+`VITE_REOWN_PROJECT_ID` is set in `frontend/.env`. The wallet must be on
+**Arc Testnet (chain id `5042002`)** to sign transactions; the app offers a
+one-click "Switch to Arc" prompt when it detects the wrong network.
 
 ---
 
@@ -170,8 +174,8 @@ cd contracts && forge test && forge fmt --check
 # Backend — 97 tests (helpers, endpoints, caching, partial-read safety, assistant)
 cd backend && pip install -r requirements.txt && python -m pytest tests/ -v
 
-# Frontend lint + build
-cd frontend && npx oxlint src && npm run build
+# Frontend — 90 tests + lint + build (oxlint, vitest, vite)
+cd frontend && pnpm install --frozen-lockfile && npx oxlint src && npx vitest run && pnpm build
 ```
 
 ---
@@ -185,7 +189,8 @@ forge script script/DeployArcBridgeEscrow.s.sol --rpc-url $ARC_RPC_URL \
   --private-key $PRIVATE_KEY --broadcast
 ```
 
-Post-deploy, update `CONTRACT_ADDRESS` in `backend/.env` + `VITE_CONTRACT_ADDRESS` in `frontend/.env`.
+Post-deploy, update `CONTRACT_ADDRESS` in `backend/.env` and
+`frontend/src/contracts/config.js` (the frontend reads it from code, not env).
 
 ---
 
@@ -204,8 +209,9 @@ Post-deploy, update `CONTRACT_ADDRESS` in `backend/.env` + `VITE_CONTRACT_ADDRES
 
 - [x] Contract source verification on ArcScan
 - [x] Backend pytest suite + CI pipeline
+- [x] Escrow-cap + admin rescue (`rescueTokens`) for mis-sent funds
+- [x] Frontend polish — expiry countdowns, CSV export, error boundary, tx-timeout handling
 - [ ] Cross-chain escrow via bridge messaging (LayerZero/Wormhole)
-- [ ] Escrow-cap + admin rescue (`sweepTokens`) for mis-sent funds
 - [ ] Fiat on/off-ramp integration
 
 ---

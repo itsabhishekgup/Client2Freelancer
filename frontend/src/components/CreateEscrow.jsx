@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
-import { Contract, JsonRpcProvider, parseUnits } from "ethers";
+import { Contract, JsonRpcProvider, formatUnits, isAddress, parseUnits } from "ethers";
 
 import escrowArtifact from "../contracts/ArcBridgeEscrow.json";
 import { arcTestnet } from "../contracts/arcChain";
 import { CONTRACT_ADDRESS } from "../contracts/config";
-import { approveUSDC, ensureArcNetwork, getBrowserProvider } from "../contracts/wallet";
+import {
+  approveUSDC,
+  ensureArcNetwork,
+  getBrowserProvider,
+  getUSDCAllowance,
+  getUSDCBalance,
+  waitForTx,
+} from "../contracts/wallet";
 import { useWalletBridge } from "../hooks/useWalletBridge";
 import { toast, updateToast } from "../lib/toast";
 
@@ -173,6 +180,35 @@ function CreateEscrow({
         return;
       }
 
+      // Pre-flight: the wallet must hold enough USDC for the approve to be
+      // meaningful. Catching this before sending a tx avoids a confusing
+      // "insufficient funds" revert from the wallet.
+      const provider = getBrowserProvider(walletProvider);
+      const signer = await provider.getSigner();
+      const walletAddr = await signer.getAddress();
+      const [balance, allowance] = await Promise.all([
+        getUSDCBalance(walletAddr, walletProvider),
+        getUSDCAllowance(walletAddr, walletProvider),
+      ]);
+      const amountWei = parseUnits(amount.toString(), 6);
+      if (balance != null && balance < amountWei) {
+        updateToast(toastId, {
+          message: `Insufficient USDC balance — you have ${Number(formatUnits(balance, 6)).toFixed(2)} USDC but tried to approve ${Number(amount).toFixed(2)}.`,
+          type: "warning",
+          duration: 7000,
+        });
+        return;
+      }
+      if (allowance != null && allowance >= amountWei) {
+        updateToast(toastId, {
+          message: "USDC is already approved for this amount — deposit funds directly.",
+          type: "info",
+          duration: 6000,
+        });
+        setCurrentStep(2);
+        return;
+      }
+
       const result = await approveUSDC(amount, walletProvider);
 
       if (result?.ok) {
@@ -224,6 +260,14 @@ function CreateEscrow({
           });
           return;
         }
+        if (!isAddress(freelancer.trim())) {
+          updateToast(toastId, {
+            message: "Freelancer address is not a valid 0x address.",
+            type: "warning",
+            duration: 6000,
+          });
+          return;
+        }
 
         const contract = await connectContract();
         if (!contract) return;
@@ -241,7 +285,7 @@ function CreateEscrow({
               );
         const createTxHash = tx.hash;
 
-        const receipt = await tx.wait();
+        const receipt = await waitForTx(tx);
 
         const parsedEvent = receipt?.logs
           ?.map((log) => {
@@ -337,9 +381,23 @@ function CreateEscrow({
           return;
         }
 
+        // Allowance pre-check: depositFunds pulls exactly escrow.amount via
+        // transferFrom, so a missing/insufficient approval reverts confusingly.
+        // Point the user at the Approve button instead of letting the tx fail.
+        const allowance = await getUSDCAllowance(walletAddr, walletProvider);
+        const escrowAmountWei = escrow.amount ? BigInt(escrow.amount.toString()) : 0n;
+        if (allowance != null && allowance < escrowAmountWei) {
+          updateToast(toastId, {
+            message: `USDC not approved for this escrow (needs ${Number(formatUnits(escrowAmountWei, 6)).toFixed(2)} USDC). Click "Approve USDC" first.`,
+            type: "warning",
+            duration: 8000,
+          });
+          return;
+        }
+
         const tx = await contract.depositFunds(escrowNum);
         const depositTxHash = tx.hash;
-        await tx.wait();
+        await waitForTx(tx);
 
         updateToast(toastId, {
           message: "Funds Deposited Successfully!",
@@ -373,7 +431,7 @@ function CreateEscrow({
 
         const tx = await fn(contract, escrowNum);
         const actionTxHash = tx.hash;
-        await tx.wait();
+        await waitForTx(tx);
 
         updateToast(toastId, {
           message: `${actionName} Successfully!`,

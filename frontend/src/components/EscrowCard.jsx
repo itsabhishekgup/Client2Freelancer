@@ -1,3 +1,6 @@
+import { formatExpiryShort } from "../lib/escrowFormat";
+import { useNow } from "../lib/useNow";
+
 /* Small inline status glyphs — glanceable, no emojis */
 function StatusIcon({ statusClass }) {
   const common = {
@@ -61,6 +64,8 @@ function StatusIcon({ statusClass }) {
 
 function EscrowCard({ escrow, onSelect }) {
   const handleClick = () => onSelect?.(escrow);
+  const now = useNow();
+  const expiry = formatExpiryShort(escrow.expiresAt, now);
 
   return (
     <article
@@ -87,6 +92,26 @@ function EscrowCard({ escrow, onSelect }) {
           {escrow.status.label}
         </span>
       </div>
+
+      {/* Line 1.5: expiry countdown (only when the deadline clock is running) */}
+      {expiry && (
+        <div className={`escrow-card-compact-expiry escrow-card-compact-expiry--${expiry.tone}`}>
+          <svg
+            viewBox="0 0 16 16"
+            width="12"
+            height="12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <circle cx="8" cy="8" r="6.5" />
+            <path d="M8 4.4V8l2.3 1.5" />
+          </svg>
+          {expiry.text}
+        </div>
+      )}
 
       {/* Line 2: parties + click affordance */}
       <div className="escrow-card-compact-parties">

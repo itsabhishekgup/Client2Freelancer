@@ -3,7 +3,10 @@ import { BrowserProvider, Contract, formatUnits } from "ethers";
 
 import { USDC_ABI } from "../contracts/USDCABI";
 import { USDC_ADDRESS } from "../contracts/constants";
+import { ensureArcNetwork } from "../contracts/wallet";
 import { useWalletBridge } from "../hooks/useWalletBridge";
+
+const ARC_CHAIN_ID = 5042002;
 
 const shortenAddress = (address) => {
   if (!address || typeof address !== "string") return "--";
@@ -17,6 +20,8 @@ function Navbar({ onNavigate }) {
   const [usdcBalance, setUsdcBalance] = useState("--");
   const [loadingBalance, setLoadingBalance] = useState(false);
   const [networkLabel, setNetworkLabel] = useState("Arc Testnet");
+  const [wrongNetwork, setWrongNetwork] = useState(false);
+  const [switching, setSwitching] = useState(false);
 
   const providerSource = useMemo(
     () => walletProvider ?? (typeof window !== "undefined" ? window.ethereum : null),
@@ -27,6 +32,7 @@ function Navbar({ onNavigate }) {
     if (!providerSource) {
       setUsdcBalance("--");
       setNetworkLabel("Arc Testnet");
+      setWrongNetwork(false);
       setLoadingBalance(false);
       return;
     }
@@ -35,12 +41,22 @@ function Navbar({ onNavigate }) {
       setLoadingBalance(true);
       const provider = new BrowserProvider(providerSource);
       const network = await provider.getNetwork();
+      const isArc = Number(network.chainId) === ARC_CHAIN_ID;
 
       setNetworkLabel(
         network?.name && network.name !== "unknown" ? network.name : "Arc Testnet",
       );
+      setWrongNetwork(isConnected && !isArc);
 
       if (!address) {
+        setUsdcBalance("--");
+        return;
+      }
+
+      // USDC balanceOf is only meaningful on Arc (the USDC contract address is
+      // Arc-specific). Reading it on Base/Sepolia returns 0 or reverts — show a
+      // clear "switch network" hint instead of a misleading "--".
+      if (!isArc) {
         setUsdcBalance("--");
         return;
       }
@@ -54,7 +70,23 @@ function Navbar({ onNavigate }) {
     } finally {
       setLoadingBalance(false);
     }
-  }, [address, providerSource]);
+  }, [address, providerSource, isConnected]);
+
+  const handleSwitchToArc = async () => {
+    if (!providerSource || switching) return;
+    setSwitching(true);
+    try {
+      const net = await ensureArcNetwork(providerSource);
+      if (!net.ok) {
+        console.warn("network switch:", net.message);
+      }
+      // chainChanged listener re-runs refreshWalletView once the wallet flips.
+    } catch (err) {
+      console.error("network switch error:", err);
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   useEffect(() => {
     refreshWalletView();
@@ -124,10 +156,23 @@ function Navbar({ onNavigate }) {
           </span>
           <small>
             {isConnected
-              ? `${networkLabel} • ${usdcBalance}`
+              ? wrongNetwork
+                ? `${networkLabel} • Not Arc`
+                : `${networkLabel} • ${usdcBalance}`
               : "Tap to connect"}
           </small>
         </button>
+
+        {wrongNetwork && (
+          <button
+            type="button"
+            className="help-btn nav-switch-arc"
+            onClick={handleSwitchToArc}
+            disabled={switching}
+          >
+            {switching ? "Switching…" : "⇄ Switch to Arc"}
+          </button>
+        )}
       </div>
     </header>
   );

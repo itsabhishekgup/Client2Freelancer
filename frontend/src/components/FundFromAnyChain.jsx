@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BrowserProvider, Contract, JsonRpcProvider } from "ethers";
+import { BrowserProvider, Contract, JsonRpcProvider, formatUnits, parseUnits } from "ethers";
 import escrowArtifact from "../contracts/ArcBridgeEscrow.json";
 import { arcTestnet } from "../contracts/arcChain";
 import { CONTRACT_ADDRESS } from "../contracts/config";
-import { approveUSDC, ensureArcNetwork } from "../contracts/wallet";
+import { approveUSDC, ensureArcNetwork, waitForTx } from "../contracts/wallet";
 import { useWalletBridge } from "../hooks/useWalletBridge";
 import { toast, updateToast } from "../lib/toast";
 
@@ -184,6 +184,7 @@ function FundFromAnyChain({ escrowId = "", onBlockchainUpdate = () => {} }) {
   const [steps, setSteps] = useState(INITIAL_STEPS);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState(null); // { bridgeHashes, depositHash, amount }
+  const [mintedPendingDeposit, setMintedPendingDeposit] = useState(false); // USDC minted on Arc but deposit not done yet
   const kitEvents = useRef([]);
   const bridgeContextRef = useRef(null); // { kit, adapter } kept for retry
   const lastResultRef = useRef(null); // last BridgeResult, for retry
@@ -204,6 +205,7 @@ function FundFromAnyChain({ escrowId = "", onBlockchainUpdate = () => {} }) {
     lastResultRef.current = null;
     autoRetried.current = false;
     setRetryable(false);
+    setMintedPendingDeposit(false);
   }, [escrowValue]);
 
   const markStep = useCallback((index, state) => {
@@ -217,6 +219,9 @@ function FundFromAnyChain({ escrowId = "", onBlockchainUpdate = () => {} }) {
     async (pendingToastId, bridgeHashes) => {
       setStatus("depositing");
       setPending("depositing");
+      // The USDC is already minted on Arc at this point — if any later step
+      // fails, surface that explicitly instead of just "Bridge failed".
+      setMintedPendingDeposit(true);
       await requestChainSwitch(walletProvider, {
         chainIdHex: "0x" + arcTestnet.id.toString(16),
         chainId: arcTestnet.id,
@@ -252,7 +257,7 @@ function FundFromAnyChain({ escrowId = "", onBlockchainUpdate = () => {} }) {
       const contract = new Contract(CONTRACT_ADDRESS, escrowArtifact.abi, signer);
       const depositTx = await contract.depositFunds(escrowNum);
       const depositHash = depositTx.hash;
-      await depositTx.wait();
+      await waitForTx(depositTx);
 
       // Mark the deposit step done.
       setSteps((prev) =>
@@ -262,6 +267,7 @@ function FundFromAnyChain({ escrowId = "", onBlockchainUpdate = () => {} }) {
       setReceipt({ bridgeHashes, depositHash, amount, escrowId: escrowValue });
       setStatus("done");
       setRetryable(false);
+      setMintedPendingDeposit(false);
       onBlockchainUpdate();
       updateToast(pendingToastId, {
         message: `Escrow #${escrowValue} funded from ${sourceChain.label}!`,
@@ -312,13 +318,16 @@ function FundFromAnyChain({ escrowId = "", onBlockchainUpdate = () => {} }) {
       toast(`Escrow #${escrowValue} is already funded`, "warning");
       return;
     }
-    const escrowAmountUsdc = Number(escrowCheck.amountWei) / 1_000_000;
-    // The bridged amount must cover the escrow amount. Extra USDC is fine —
-    // it covers the Arc relayer fee (deducted from the mint when useForwarder
-    // is on) and leaves a small USDC gas buffer in the wallet for the deposit
-    // tx (Arc's native gas is USDC). depositFunds pulls exactly escrow.amount,
-    // so the surplus stays in the wallet.
-    if (Number(amount) < escrowAmountUsdc - 0.000001) {
+    // The bridged amount must cover the escrow amount. Compare in wei units
+    // (BigInt math) instead of Number() so large amounts never lose precision.
+    // Extra USDC is fine — it covers the Arc relayer fee (deducted from the
+    // mint when useForwarder is on) and leaves a small USDC gas buffer in the
+    // wallet for the deposit tx (Arc's native gas is USDC). depositFunds pulls
+    // exactly escrow.amount, so the surplus stays in the wallet.
+    const amountWei = parseUnits(amount.toString(), 6);
+    const escrowAmountWei = escrowCheck.amountWei;
+    if (amountWei < escrowAmountWei - 1n) {
+      const escrowAmountUsdc = Number(formatUnits(escrowAmountWei, 6));
       toast(
         `Amount is too low — escrow #${escrowValue} needs ${escrowAmountUsdc.toFixed(2)} USDC. Bridge at least that much (a little extra covers gas + relay fee).`,
         "warning",
@@ -649,12 +658,49 @@ function FundFromAnyChain({ escrowId = "", onBlockchainUpdate = () => {} }) {
 
       {status === "error" && (
         <div className="fund-error">
-          <strong>❌ Bridge failed</strong>
+          <strong>❌ {mintedPendingDeposit ? "Deposit incomplete" : "Bridge failed"}</strong>
           <span>{error}</span>
-          <p className="escrow-hint">
-            Tip: make sure your wallet has USDC and {sourceChain.native.symbol} gas on{" "}
-            {sourceChain.label}, then retry.
-          </p>
+          {mintedPendingDeposit ? (
+            <p className="escrow-hint">
+              Your USDC was minted on Arc and is sitting in your wallet — the escrow deposit
+              didn't go through. You can deposit it now (no need to bridge again).
+            </p>
+          ) : (
+            <p className="escrow-hint">
+              Tip: make sure your wallet has USDC and {sourceChain.native.symbol} gas on{" "}
+              {sourceChain.label}, then retry.
+            </p>
+          )}
+          {mintedPendingDeposit && (
+            <button
+              type="button"
+              className="premium-action-btn premium-action-btn--create"
+              onClick={async () => {
+                setError("");
+                setStatus("depositing");
+                setPending("depositing");
+                const pendingToastId = toast("Depositing USDC into escrow on Arc…", "pending", {
+                  duration: 0,
+                });
+                try {
+                  await runDepositFlow(pendingToastId, lastResultRef.current
+                    ? (lastResultRef.current.steps ?? []).filter((s) => s.txHash).map((s) => ({ name: s.name, txHash: s.txHash, explorerUrl: s.explorerUrl }))
+                    : []);
+                } catch (depositErr) {
+                  console.error("deposit resume error:", depositErr);
+                  const msg = depositErr?.shortMessage || depositErr?.reason || depositErr?.message || "Deposit failed";
+                  setError(msg);
+                  setStatus("error");
+                  updateToast(pendingToastId, { message: msg, type: "error", duration: 9000 });
+                } finally {
+                  setPending(null);
+                }
+              }}
+              disabled={pending !== null}
+            >
+              ↓ Deposit now (USDC is on Arc)
+            </button>
+          )}
           {retryable && (
             <button
               type="button"
@@ -672,6 +718,7 @@ function FundFromAnyChain({ escrowId = "", onBlockchainUpdate = () => {} }) {
               setStatus("idle");
               setError("");
               setRetryable(false);
+              setMintedPendingDeposit(false);
             }}
           >
             ← Try again

@@ -8,6 +8,8 @@ import {
   formatAmount,
   getEscrowStatusMeta,
   getWorkflowStep,
+  getWorkflowTerminalMeta,
+  formatExpiry,
   mapEscrowState,
 } from "./escrowFormat";
 
@@ -177,6 +179,76 @@ describe("getWorkflowStep", () => {
 
   it("returns 1 by default", () => {
     expect(getWorkflowStep({})).toBe(1);
+  });
+});
+
+describe("getWorkflowTerminalMeta", () => {
+  it("returns null for no escrow", () => {
+    expect(getWorkflowTerminalMeta(null)).toBeNull();
+  });
+
+  it("returns null for an in-progress escrow", () => {
+    expect(getWorkflowTerminalMeta({ funded: true })).toBeNull();
+  });
+
+  it("maps released to a green completed card", () => {
+    const meta = getWorkflowTerminalMeta({ released: true });
+    expect(meta.tone).toBe("green");
+    expect(meta.icon).toBe("check");
+    expect(meta.title).toBe("Completed");
+  });
+
+  it("maps refunded to an amber cancelled card", () => {
+    const meta = getWorkflowTerminalMeta({ refunded: true });
+    expect(meta.tone).toBe("amber");
+    expect(meta.icon).toBe("cancel");
+    expect(meta.title).toBe("Cancelled");
+  });
+
+  it("maps disputed to a red dispute card", () => {
+    const meta = getWorkflowTerminalMeta({ disputed: true });
+    expect(meta.tone).toBe("red");
+    expect(meta.icon).toBe("dispute");
+    expect(meta.title).toBe("Disputed");
+  });
+});
+
+describe("formatExpiry", () => {
+  const NOW = 1_700_000_000;
+
+  it("reports no clock for zero/unset expiry", () => {
+    expect(formatExpiry(0, NOW).text).toBe("Clock starts at funding");
+    expect(formatExpiry(null, NOW).text).toBe("Clock starts at funding");
+  });
+
+  it("formats days remaining", () => {
+    const r = formatExpiry(NOW + 10 * 24 * 3600, NOW);
+    expect(r.text).toBe("Expires in 10d 0h");
+    expect(r.tone).toBe("ok");
+  });
+
+  it("flags warning tone under 7 days", () => {
+    const r = formatExpiry(NOW + 3 * 24 * 3600, NOW);
+    expect(r.text).toBe("Expires in 3d 0h");
+    expect(r.tone).toBe("warning");
+  });
+
+  it("flags urgent tone under 24 hours", () => {
+    const r = formatExpiry(NOW + 5 * 3600, NOW);
+    expect(r.text).toBe("Expires in 5h 0m");
+    expect(r.tone).toBe("urgent");
+  });
+
+  it("formats minutes when under an hour", () => {
+    const r = formatExpiry(NOW + 600, NOW);
+    expect(r.text).toBe("Expires in 10m");
+    expect(r.tone).toBe("urgent");
+  });
+
+  it("reports expired for past timestamps", () => {
+    const r = formatExpiry(NOW - 2 * 3600, NOW);
+    expect(r.text).toBe("Expired 2h ago");
+    expect(r.tone).toBe("expired");
   });
 });
 

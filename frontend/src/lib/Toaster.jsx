@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { subscribeToasts } from "./toast";
 
 const TYPE_ICONS = {
@@ -10,33 +10,66 @@ const TYPE_ICONS = {
 
 export function Toaster() {
   const [toasts, setToasts] = useState([]);
+  // Track the auto-dismiss timer per toast so an update (pending → success)
+  // clears the old timer instead of stacking two — the first one firing would
+  // dismiss the toast early.
+  const timersRef = useRef(new Map());
 
   useEffect(() => {
+    const timers = timersRef.current;
+
+    const clearTimer = (id) => {
+      const existing = timers.get(id);
+      if (existing) {
+        clearTimeout(existing);
+        timers.delete(id);
+      }
+    };
+
+    const scheduleDismiss = (id, duration) => {
+      clearTimer(id);
+      if (!duration || duration <= 0) return;
+      const timer = setTimeout(() => {
+        timers.delete(id);
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, duration);
+      timers.set(id, timer);
+    };
+
     const unsubscribe = subscribeToasts((event) => {
       if (event.kind === "add") {
         const entry = event.entry;
         setToasts((prev) => [...prev, entry]);
-        if (entry.duration > 0) {
-          setTimeout(() => {
-            setToasts((prev) => prev.filter((t) => t.id !== entry.id));
-          }, entry.duration);
-        }
+        scheduleDismiss(entry.id, entry.duration);
         return;
       }
 
       if (event.kind === "update") {
         setToasts((prev) => prev.map((t) => (t.id === event.id ? { ...t, ...event.patch } : t)));
-        if (event.patch.duration > 0) {
-          setTimeout(() => {
-            setToasts((prev) => prev.filter((t) => t.id !== event.id));
-          }, event.patch.duration);
+        // Re-arm the dismiss timer from the NEW duration — the old timer (if
+        // any) is cleared above, so a pending (duration 0) → success (7000)
+        // morph gets exactly one 7s timer.
+        const nextDuration = event.patch.duration;
+        if (typeof nextDuration === "number") {
+          scheduleDismiss(event.id, nextDuration);
         }
       }
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
+    };
   }, []);
 
-  const dismiss = (id) => setToasts((prev) => prev.filter((t) => t.id !== id));
+  const dismiss = (id) => {
+    const timer = timersRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      timersRef.current.delete(id);
+    }
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
 
   return (
     <div className="toast-viewport" aria-live="polite" aria-atomic="false">

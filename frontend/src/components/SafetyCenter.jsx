@@ -34,6 +34,18 @@ function toUsdc(value) {
   }
 }
 
+// Backend-sourced values are not guaranteed to be numeric. BigInt("abc")
+// throws and would crash the whole page — return 0n instead so callers can
+// safely derive UI state.
+function toBigInt(value) {
+  if (value === null || value === undefined || value === "") return 0n;
+  try {
+    return BigInt(value.toString());
+  } catch {
+    return 0n;
+  }
+}
+
 // ── Small presentational helpers ─────────────────────────────────────────────
 
 function StatusChip({ state, children }) {
@@ -223,7 +235,7 @@ function SafetyCenter({ onNavigate }) {
   // ABOVE the locked escrow balance is recoverable (the contract enforces this
   // in rescueTokens). An optional token check adds any other ERC-20 balance.
   const usdcRecoverable = useMemo(() => {
-    const wei = contract?.recoverable_wei != null ? BigInt(contract.recoverable_wei) : 0n;
+    const wei = contract?.recoverable_wei != null ? toBigInt(contract.recoverable_wei) : 0n;
     if (wei <= 0n) return null;
     return {
       id: "usdc",
@@ -558,7 +570,7 @@ function SafetyCenter({ onNavigate }) {
               state={
                 contract.locked_wei == null
                   ? "notverified"
-                  : BigInt(contract.locked_wei) > 0n
+                  : toBigInt(contract.locked_wei) > 0n
                     ? "healthy"
                     : "verified"
               }

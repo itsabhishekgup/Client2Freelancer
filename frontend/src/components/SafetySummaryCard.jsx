@@ -53,7 +53,16 @@ function SafetySummaryCard({ onNavigate }) {
   const healthy = Boolean(
     checks.chain_healthy && checks.contract_readable && checks.escrow_isolation,
   );
-  const recoverableWei = contract?.recoverable_wei != null ? BigInt(contract.recoverable_wei) : 0n;
+  // Backend-sourced values are not guaranteed numeric — guard BigInt() so a
+  // malformed value can't crash the dashboard.
+  const recoverableWei = (() => {
+    if (contract?.recoverable_wei == null) return 0n;
+    try {
+      return BigInt(contract.recoverable_wei.toString());
+    } catch {
+      return 0n;
+    }
+  })();
   const hasRecoverable = recoverableWei > 0n;
   const hasAlerts = !healthy || hasRecoverable;
 

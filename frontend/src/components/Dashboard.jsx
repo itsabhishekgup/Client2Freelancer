@@ -13,6 +13,8 @@ import {
   formatRelativeTime,
   getEscrowStatusMeta,
   getWorkflowStep,
+  getWorkflowTerminalLabel,
+  getWorkflowTerminalMeta,
   mapEscrowState,
   normalizeEscrowId,
   shortenAddress,
@@ -539,14 +541,39 @@ function Dashboard(props) {
   }, [selectedSummaryId, providerSource]);
 
   // Auto-refresh: re-run the chain snapshot on the interval chosen in Settings.
+  // Skip when the tab is hidden — background tabs keep polling the backend+RPC
+  // every 30s for no user benefit, which wastes requests on the rate-limited
+  // testnet RPC. A visibilitychange listener refreshes immediately on return.
   useEffect(() => {
     if (!refreshMs) return undefined;
-    const id = setInterval(() => setRefreshTick((tick) => tick + 1), refreshMs);
-    return () => clearInterval(id);
+
+    const tick = () => {
+      if (document.visibilityState === "visible") {
+        setRefreshTick((t) => t + 1);
+      }
+    };
+    const id = setInterval(tick, refreshMs);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        setRefreshTick((t) => t + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [refreshMs]);
 
   const displayedSummary = summaryEscrow ?? recentEscrows[0] ?? null;
-  const displayedStep = Math.min(Math.max(liveStep, 0), STEPS.length);
+  const terminalLabel = getWorkflowTerminalLabel(displayedSummary);
+  const terminalMeta = getWorkflowTerminalMeta(displayedSummary);
+  // Terminal states (refunded/cancelled, disputed) are not on the forward
+  // path — clamp the step display so the stepper doesn't misrepresent them.
+  const isTerminal = Boolean(terminalLabel);
+  const displayedStep = isTerminal
+    ? 0
+    : Math.min(Math.max(liveStep, 0), STEPS.length);
 
   // Timeline for the open modal: activity feed events for that escrow.
   const selectedEscrowEvents = useMemo(() => {
@@ -579,24 +606,61 @@ function Dashboard(props) {
             </div>
 
             <div className="progress-track">
-              {STEPS.map((step, index) => {
-                let state = "pending";
-                if (displayedStep >= STEPS.length) {
-                  state = "completed";
-                }
-                if (index < displayedStep) {
-                  state = "completed";
-                } else if (index === displayedStep) {
-                  state = "active";
-                }
-
-                return (
-                  <div key={step} className={`progress-step ${state}`}>
-                    <div className="progress-circle">{index + 1}</div>
-                    <span className="progress-label">{step}</span>
+              {isTerminal ? (
+                <div className={`progress-terminal-card progress-terminal-card--${terminalMeta.tone}`}>
+                  <div className="progress-terminal-icon" aria-hidden="true">
+                    {terminalMeta.icon === "check" ? (
+                      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                    ) : terminalMeta.icon === "cancel" ? (
+                      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="m15 9-6 6" />
+                        <path d="m9 9 6 6" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+                        <path d="M12 9v4" />
+                        <path d="M12 17h.01" />
+                      </svg>
+                    )}
                   </div>
-                );
-              })}
+                  <div className="progress-terminal-body">
+                    <strong>{terminalMeta.title}</strong>
+                    <span>{terminalMeta.subtitle}</span>
+                  </div>
+                  <span className={`progress-terminal-chip progress-terminal-chip--${terminalMeta.tone}`}>
+                    {terminalMeta.icon === "check" ? "✓" : terminalMeta.icon === "cancel" ? "↩" : "⚠"}
+                    {terminalMeta.tone === "green"
+                      ? " Released"
+                      : terminalMeta.tone === "amber"
+                        ? " Refunded"
+                        : " Open"}
+                  </span>
+                </div>
+              ) : (
+                STEPS.map((step, index) => {
+                  let state = "pending";
+                  if (displayedStep >= STEPS.length) {
+                    state = "completed";
+                  }
+                  if (index < displayedStep) {
+                    state = "completed";
+                  } else if (index === displayedStep) {
+                    state = "active";
+                  }
+
+                  return (
+                    <div key={step} className={`progress-step ${state}`}>
+                      <div className="progress-circle">{index + 1}</div>
+                      <span className="progress-label">{step}</span>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </section>
 

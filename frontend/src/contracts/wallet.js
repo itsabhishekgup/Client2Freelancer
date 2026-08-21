@@ -6,6 +6,30 @@ import { toast } from "../lib/toast";
 
 const ARC_CHAIN_ID = 5042002;
 
+// Wait for a tx receipt with a hard timeout. A stuck pending tx (RPC stalls,
+// wallet disconnected mid-flow) otherwise leaves the caller's pending toast and
+// disabled buttons stuck forever. On timeout the tx is still on-chain/pending —
+// the caller surfaces a "still pending, check the explorer" message instead of
+// pretending it failed.
+export async function waitForTx(tx, { timeoutMs = 120000 } = {}) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error("Transaction is taking longer than expected — it may still be pending. Check the explorer for the latest status.")),
+      timeoutMs,
+    );
+    timer.unref?.();
+  });
+
+  try {
+    // tx.wait() polls for the receipt itself; racing it with a timeout is the
+    // only thing we add — a stuck pending tx can otherwise hang forever.
+    return await Promise.race([tx.wait(), timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function resolveWalletProvider(providerSource) {
   return providerSource ?? (typeof window !== "undefined" ? window.ethereum : null);
 }
@@ -135,6 +159,31 @@ export async function connectWallet(providerSource) {
   }
 }
 
+export async function getUSDCAllowance(ownerAddress, providerSource) {
+  const provider = getBrowserProvider(providerSource);
+  if (!provider || !ownerAddress) return null;
+  try {
+    const usdc = new Contract(USDC_ADDRESS, USDC_ABI, provider);
+    const allowance = await usdc.allowance(ownerAddress, CONTRACT_ADDRESS);
+    return allowance;
+  } catch (err) {
+    console.error("allowance read error:", err);
+    return null;
+  }
+}
+
+export async function getUSDCBalance(address, providerSource) {
+  const provider = getBrowserProvider(providerSource);
+  if (!provider || !address) return null;
+  try {
+    const usdc = new Contract(USDC_ADDRESS, USDC_ABI, provider);
+    return await usdc.balanceOf(address);
+  } catch (err) {
+    console.error("balance read error:", err);
+    return null;
+  }
+}
+
 export async function approveUSDC(amount, providerSource) {
   const provider = getBrowserProvider(providerSource);
 
@@ -152,7 +201,7 @@ export async function approveUSDC(amount, providerSource) {
     );
     const txHash = tx.hash;
 
-    await tx.wait();
+    await waitForTx(tx);
 
     return { ok: true, hash: txHash, message: null };
   } catch (err) {
