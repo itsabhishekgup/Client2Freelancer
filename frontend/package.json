@@ -17,6 +17,7 @@
     "@circle-fin/bridge-kit": "^1.13.0",
     "@reown/appkit": "^1.8.23",
     "@reown/appkit-adapter-wagmi": "^1.8.23",
+    "@reown/appkit-controllers": "1.8.23",
     "@tanstack/react-query": "^5.101.4",
     "ethers": "^6.17.0",
     "react": "^19.0.0",
