@@ -101,7 +101,7 @@ const CIRCLE_INTEGRATIONS = [
   {
     icon: "🔀",
     title: "CCTP cross-chain transfers",
-    body: "Circle's Cross-Chain Transfer Protocol moves USDC natively between 20+ chains. ArcBridge uses it for 'Fund From Any Chain' — escrows funded straight from Base or Ethereum.",
+    body: "Circle's Cross-Chain Transfer Protocol moves USDC natively between 20+ chains. Client2Freelancer uses it for 'Fund From Any Chain' — escrows funded straight from Base or Ethereum.",
   },
   {
     icon: "🏦",
@@ -139,7 +139,7 @@ const REASONS = [
   },
   {
     title: "EVM = instant tooling",
-    body: "Standard Solidity, standard wallets, standard explorers. ArcBridge runs on the same stack every developer already knows.",
+    body: "Standard Solidity, standard wallets, standard explorers. Client2Freelancer runs on the same stack every developer already knows.",
   },
 ];
 
@@ -150,7 +150,7 @@ function WhyArc({ onNavigate }) {
         <div className="theme-badge">Arc Network • Why Arc</div>
         <h1>Why Arc?</h1>
         <p className="dashboard-lead">
-          ArcBridge is built on Arc — a stablecoin-native Layer 1 blockchain from Circle, the team behind USDC.
+          Client2Freelancer is built on Arc — a stablecoin-native Layer 1 blockchain from Circle, the team behind USDC.
         </p>
       </section>
 
@@ -189,7 +189,7 @@ function WhyArc({ onNavigate }) {
         </div>
 
         <div className="whyarc-reasons">
-          <h4>Why ArcBridge chose Arc</h4>
+          <h4>Why Client2Freelancer chose Arc</h4>
           <div className="whyarc-reasons-list">
             {REASONS.map((r) => (
               <div key={r.title} className="whyarc-reason">
@@ -229,7 +229,7 @@ function WhyArc({ onNavigate }) {
         <div className="whyarc-circle">
           <h4>Built on the Circle ecosystem</h4>
           <p className="whyarc-compare-note">
-            Arc is Circle's Layer 1, so the full Circle platform is native here — and ArcBridge
+            Arc is Circle's Layer 1, so the full Circle platform is native here — and Client2Freelancer
             plugs straight into it.
           </p>
           <div className="whyarc-grid">
@@ -246,11 +246,11 @@ function WhyArc({ onNavigate }) {
             ))}
           </div>
           <div className="whyarc-cctp-note">
-            <span className="status-badge live">Live in ArcBridge</span>
+            <span className="status-badge live">Live in Client2Freelancer</span>
             <strong>🌉 Fund From Any Chain — powered by Circle CCTP</strong>
             <p>
               Bridge USDC from Base Sepolia or Ethereum Sepolia straight into an escrow: CCTP
-              burns on the source chain and mints natively on Arc, then ArcBridge auto-deposits
+              burns on the source chain and mints natively on Arc, then Client2Freelancer auto-deposits
               into the escrow. No manual bridging, no wrapped tokens, no liquidity pools.
             </p>
           </div>
@@ -280,7 +280,7 @@ function WhyArc({ onNavigate }) {
         </div>
 
         <div className="whyarc-network">
-          <h4>ArcBridge on Arc — live network details</h4>
+          <h4>Client2Freelancer on Arc — live network details</h4>
           <div className="whyarc-table">
             {ARCBRIDGE_TABLE.map((row) => (
               <div key={row.label} className="whyarc-table-row">

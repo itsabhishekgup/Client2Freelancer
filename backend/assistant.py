@@ -1,4 +1,4 @@
-"""ArcBridge support assistant — hybrid answerer.
+"""Client2Freelancer support assistant — hybrid answerer.
 
 Professional, language-matched answers:
 - Rule-based first: a curated, bilingual (English / Hindi-Hinglish) knowledge
@@ -8,7 +8,7 @@ Professional, language-matched answers:
   the LLM is instructed to act as a professional support engineer and reply in
   the user's language with clean, structured answers.
 
-All facts mirror the deployed contract (ArcBridgeEscrow.sol): amount > 0,
+All facts mirror the deployed contract (Client2FreelancerEscrow.sol): amount > 0,
 per-client cap (default 50), cancel-before-funding refund, claim-after-expiry,
 dispute freeze + arbitrator resolution, USDC rescue only above locked funds.
 
@@ -61,8 +61,8 @@ KB: List[Dict[str, Any]] = [
         "intent": "greeting",
         "keywords": ["hello", "hi", "hey", "namaste", "namaskar", "good morning", "good evening", "kaise ho", "salaam", "good afternoon", "yo"],
         "answer": {
-            "en": "Hello. I'm Escrow Copilot, ArcBridge's built-in escrow assistant.\n\nI can help you with creating escrows, depositing funds, disputes, refunds, wallet setup, gas, and network information. Ask in English or Hindi and I'll reply in the same language.",
-            "hi": "Namaste. Main Escrow Copilot hoon — ArcBridge ka built-in escrow assistant.\n\nEscrow banane, funds deposit karne, dispute, refund, wallet connect, gas aur network ki jankari — in sab mein madad kar sakta hoon. English ya Hindi mein poochhein, jawab usi bhasha mein milega.",
+            "en": "Hello. I'm Escrow Copilot, Client2Freelancer's built-in escrow assistant.\n\nI can help you with creating escrows, depositing funds, disputes, refunds, wallet setup, gas, and network information. Ask in English or Hindi and I'll reply in the same language.",
+            "hi": "Namaste. Main Escrow Copilot hoon — Client2Freelancer ka built-in escrow assistant.\n\nEscrow banane, funds deposit karne, dispute, refund, wallet connect, gas aur network ki jankari — in sab mein madad kar sakta hoon. English ya Hindi mein poochhein, jawab usi bhasha mein milega.",
         },
     },
     {
@@ -93,8 +93,8 @@ KB: List[Dict[str, Any]] = [
         "intent": "cctp_what",
         "keywords": ["what is cctp", "cctp kya hai", "cctp kya hota hai", "cross-chain transfer protocol", "what does cctp mean", "circle cctp kya", "cctp explain", "cctp matlab"],
         "answer": {
-            "en": "CCTP (Cross-Chain Transfer Protocol) is Circle's native USDC bridge. Instead of wrapped tokens or liquidity pools, CCTP burns USDC on the source chain and mints the same USDC 1:1 on the destination chain.\n\nIn ArcBridge:\n\n1. You pick a source chain (Base Sepolia or Ethereum Sepolia) in the Fund From Any Chain card.\n2. Your USDC is burned on the source chain and Circle verifies the transfer (attestation, ~30-60 seconds).\n3. Fresh USDC is minted on Arc and auto-deposited into the escrow.\n\nBecause it is a native 1:1 transfer, there is no bridge liquidity risk and no wrapped tokens - the escrow holds real USDC.",
-            "hi": "CCTP (Cross-Chain Transfer Protocol) Circle ka native USDC bridge hai. Wrapped tokens ya liquidity pools ki jagah, CCTP source chain par USDC ko burn karta hai aur destination chain par wahi USDC 1:1 mint karta hai.\n\nArcBridge mein:\n\n1. Fund From Any Chain card mein source chain chunen (Base Sepolia ya Ethereum Sepolia).\n2. Aapka USDC source chain par burn hota hai aur Circle transfer verify karta hai (attestation, ~30-60 second).\n3. Arc par naya USDC mint hokar automatically escrow mein deposit ho jata hai.\n\nNative 1:1 transfer hone ki wajah se koi bridge liquidity risk nahi aur koi wrapped tokens nahi - escrow mein asli USDC hota hai.",
+            "en": "CCTP (Cross-Chain Transfer Protocol) is Circle's native USDC bridge. Instead of wrapped tokens or liquidity pools, CCTP burns USDC on the source chain and mints the same USDC 1:1 on the destination chain.\n\nIn Client2Freelancer:\n\n1. You pick a source chain (Base Sepolia or Ethereum Sepolia) in the Fund From Any Chain card.\n2. Your USDC is burned on the source chain and Circle verifies the transfer (attestation, ~30-60 seconds).\n3. Fresh USDC is minted on Arc and auto-deposited into the escrow.\n\nBecause it is a native 1:1 transfer, there is no bridge liquidity risk and no wrapped tokens - the escrow holds real USDC.",
+            "hi": "CCTP (Cross-Chain Transfer Protocol) Circle ka native USDC bridge hai. Wrapped tokens ya liquidity pools ki jagah, CCTP source chain par USDC ko burn karta hai aur destination chain par wahi USDC 1:1 mint karta hai.\n\nClient2Freelancer mein:\n\n1. Fund From Any Chain card mein source chain chunen (Base Sepolia ya Ethereum Sepolia).\n2. Aapka USDC source chain par burn hota hai aur Circle transfer verify karta hai (attestation, ~30-60 second).\n3. Arc par naya USDC mint hokar automatically escrow mein deposit ho jata hai.\n\nNative 1:1 transfer hone ki wajah se koi bridge liquidity risk nahi aur koi wrapped tokens nahi - escrow mein asli USDC hota hai.",
         },
     },
     {
@@ -205,16 +205,16 @@ KB: List[Dict[str, Any]] = [
         "intent": "security",
         "keywords": ["safe", "secure", "trust", "trusted", "scam se", "safe hai", "trustless", "kabhi bharosa", "secure hai", "is it safe", "is it secure", "how is this trustworthy", "can i trust"],
         "answer": {
-            "en": "How ArcBridge protects funds:\n\n1. Funds are locked in the smart contract and can only move through the defined lifecycle (deposit, approve, dispute resolution).\n2. A dispute freezes the funds until an arbitrator resolves the case.\n3. The client has an exit path: cancel before funding, or cancel for a refund after expiry when no work was submitted. The freelancer can claim after expiry when work was submitted but never approved.\n4. A per-client escrow cap limits simultaneous open escrows and prevents spam.\n5. rescueTokens recovers tokens sent to the contract by mistake, without touching locked escrow funds.\n\nThe contract is source-verified on ArcScan and the project is MIT-licensed.",
-            "hi": "ArcBridge funds ko kaise protect karta hai:\n\n1. Funds smart contract mein locked rehte hain aur sirf defined lifecycle (deposit, approve, dispute resolution) ke through move kar sakte hain.\n2. Dispute funds ko freeze kar deta hai jab tak arbitrator case resolve na kare.\n3. Client ke paas exit path hai: funding se pehle cancel, ya expiry ke baad refund ke liye cancel (jab work submit nahi hua). Freelancer expiry ke baad claim kar sakta hai jab work submit hua ho par approve nahi hua.\n4. Per-client escrow cap ek saath khule escrows limit karta hai aur spam prevent karta hai.\n5. rescueTokens galti se contract par bheje tokens recover karta hai, locked escrow funds ko chhu bhi nahi.\n\nContract ArcScan par source-verified hai aur project MIT-licensed hai.",
+            "en": "How Client2Freelancer protects funds:\n\n1. Funds are locked in the smart contract and can only move through the defined lifecycle (deposit, approve, dispute resolution).\n2. A dispute freezes the funds until an arbitrator resolves the case.\n3. The client has an exit path: cancel before funding, or cancel for a refund after expiry when no work was submitted. The freelancer can claim after expiry when work was submitted but never approved.\n4. A per-client escrow cap limits simultaneous open escrows and prevents spam.\n5. rescueTokens recovers tokens sent to the contract by mistake, without touching locked escrow funds.\n\nThe contract is source-verified on ArcScan and the project is MIT-licensed.",
+            "hi": "Client2Freelancer funds ko kaise protect karta hai:\n\n1. Funds smart contract mein locked rehte hain aur sirf defined lifecycle (deposit, approve, dispute resolution) ke through move kar sakte hain.\n2. Dispute funds ko freeze kar deta hai jab tak arbitrator case resolve na kare.\n3. Client ke paas exit path hai: funding se pehle cancel, ya expiry ke baad refund ke liye cancel (jab work submit nahi hua). Freelancer expiry ke baad claim kar sakta hai jab work submit hua ho par approve nahi hua.\n4. Per-client escrow cap ek saath khule escrows limit karta hai aur spam prevent karta hai.\n5. rescueTokens galti se contract par bheje tokens recover karta hai, locked escrow funds ko chhu bhi nahi.\n\nContract ArcScan par source-verified hai aur project MIT-licensed hai.",
         },
     },
     {
         "intent": "bot_identity",
         "keywords": ["who are you", "tum kaun", "kya ho", "kaun ho", "assistant", "bot", "are you", "helpful", "your name", "what are you", "who made you", "are you a robot"],
         "answer": {
-            "en": "I'm Escrow Copilot — ArcBridge's built-in escrow assistant, trained on the full escrow lifecycle.\n\nI answer common questions instantly from a curated knowledge base, and use an AI model for anything more specific. ArcBridge is a trustless USDC escrow platform on the Arc Network testnet.",
-            "hi": "Main Escrow Copilot hoon — ArcBridge ka built-in escrow assistant, poore escrow lifecycle par trained.\n\nCommon sawalon ke jawab curated knowledge base se turant deta hoon, aur zyada specific sawalon ke liye AI model use karta hoon. ArcBridge Arc Network testnet par ek trustless USDC escrow platform hai.",
+            "en": "I'm Escrow Copilot — Client2Freelancer's built-in escrow assistant, trained on the full escrow lifecycle.\n\nI answer common questions instantly from a curated knowledge base, and use an AI model for anything more specific. Client2Freelancer is a trustless USDC escrow platform on the Arc Network testnet.",
+            "hi": "Main Escrow Copilot hoon — Client2Freelancer ka built-in escrow assistant, poore escrow lifecycle par trained.\n\nCommon sawalon ke jawab curated knowledge base se turant deta hoon, aur zyada specific sawalon ke liye AI model use karta hoon. Client2Freelancer Arc Network testnet par ek trustless USDC escrow platform hai.",
         },
     },
     {
@@ -261,8 +261,8 @@ KB: List[Dict[str, Any]] = [
         "intent": "production",
         "keywords": ["mainnet", "production", "deploy", "hackathon", "live version", "real money", "real usdc", "go live", "is this real", "production deploy"],
         "answer": {
-            "en": "ArcBridge currently runs on the Arc Network testnet, using demo funds.\n\nA production (mainnet) launch would require redeploying and source-verifying the contract, pointing the frontend and backend at the mainnet RPC and USDC, and completing a security review. The architecture is ready; the testnet deployment is what is live today.",
-            "hi": "ArcBridge abhi Arc Network testnet par chal raha hai, demo funds ke saath.\n\nProduction (mainnet) launch ke liye contract ko redeploy aur source-verify karna hoga, frontend aur backend ko mainnet RPC aur USDC par point karna hoga, aur security review complete karna hoga. Architecture ready hai; testnet deployment aaj live hai.",
+            "en": "Client2Freelancer currently runs on the Arc Network testnet, using demo funds.\n\nA production (mainnet) launch would require redeploying and source-verifying the contract, pointing the frontend and backend at the mainnet RPC and USDC, and completing a security review. The architecture is ready; the testnet deployment is what is live today.",
+            "hi": "Client2Freelancer abhi Arc Network testnet par chal raha hai, demo funds ke saath.\n\nProduction (mainnet) launch ke liye contract ko redeploy aur source-verify karna hoga, frontend aur backend ko mainnet RPC aur USDC par point karna hoga, aur security review complete karna hoga. Architecture ready hai; testnet deployment aaj live hai.",
         },
     },
     {
@@ -301,8 +301,8 @@ KB: List[Dict[str, Any]] = [
         "intent": "wrong_network",
         "keywords": ["wrong network", "switch network", "add network", "unsupported chain", "network not supported", "chain mismatch", "wrong chain", "change network", "arc network add", "network error", "connect to arc"],
         "answer": {
-            "en": "ArcBridge runs on the Arc Network testnet. To switch:\n\n1. Open your wallet and switch the network to Arc Network (Chain ID 5042002).\n2. If it is not listed, add it using the RPC URL from Settings > Network Info.\n3. Once connected, reconnect the app (disconnect and connect again if needed).\n\nThe dashboard shows your connected network at the top of the Wallet panel, so you can confirm before sending a transaction.",
-            "hi": "ArcBridge Arc Network testnet par chalta hai. Switch karne ke liye:\n\n1. Apna wallet kholkar network Arc Network (Chain ID 5042002) par switch karein.\n2. Agar listed nahi hai, to Settings > Network Info se RPC URL use karke add karein.\n3. Connect hone ke baad app dobara connect karein (zaroorat ho to disconnect karke wapas connect karein).\n\nDashboard ke Wallet panel mein aapka connected network top par dikhta hai — transaction bhejne se pehle confirm kar sakte hain.",
+            "en": "Client2Freelancer runs on the Arc Network testnet. To switch:\n\n1. Open your wallet and switch the network to Arc Network (Chain ID 5042002).\n2. If it is not listed, add it using the RPC URL from Settings > Network Info.\n3. Once connected, reconnect the app (disconnect and connect again if needed).\n\nThe dashboard shows your connected network at the top of the Wallet panel, so you can confirm before sending a transaction.",
+            "hi": "Client2Freelancer Arc Network testnet par chalta hai. Switch karne ke liye:\n\n1. Apna wallet kholkar network Arc Network (Chain ID 5042002) par switch karein.\n2. Agar listed nahi hai, to Settings > Network Info se RPC URL use karke add karein.\n3. Connect hone ke baad app dobara connect karein (zaroorat ho to disconnect karke wapas connect karein).\n\nDashboard ke Wallet panel mein aapka connected network top par dikhta hai — transaction bhejne se pehle confirm kar sakte hain.",
         },
     },
     {
@@ -349,8 +349,8 @@ KB: List[Dict[str, Any]] = [
         "intent": "why_arc",
         "keywords": ["why arc", "what is arc", "what is arc network", "arc network kya", "arc blockchain", "arc kya hai", "why did you choose arc", "why arc network", "arc vs ethereum", "why arcbridge uses arc", "tell me about arc", "arc testnet kya", "arc layer 1"],
         "answer": {
-            "en": "Why ArcBridge is built on Arc (Arc Network):\n\n1. USDC is the native gas — every transaction fee is paid in USDC, so costs are dollar-denominated, low, and predictable. No volatile ETH/BTC gas.\n2. Deterministic sub-second finality — escrow actions (deposit, approve, release) confirm almost instantly.\n3. Native USDC — no wrapping or bridges, so no bridge risk for escrow funds.\n4. EVM-compatible — standard Solidity, wallets, and tooling work as-is.\n5. Purpose-built for stablecoin finance and payments by Circle, the team behind USDC.\n\nThe full Why Arc page (features, comparison vs general-purpose chains, and resources) is in the app under Sidebar > Why Arc.\n\nUseful links:\n- Official site: https://www.arc.io\n- Documentation: https://docs.arc.network\n- Testnet explorer: https://testnet.arcscan.app\n- Faucet (free testnet USDC): https://faucet.circle.com\n- GitHub (Arc node): https://github.com/circlefin/arc-node",
-            "hi": "ArcBridge Arc Network par kyun bana hai:\n\n1. USDC native gas hai — har transaction fee USDC mein paid hoti hai, matlab costs dollar-denominated, low, aur predictable. Koi volatile ETH/BTC gas nahi.\n2. Deterministic sub-second finality — escrow actions (deposit, approve, release) almost instantly confirm hote hain.\n3. Native USDC — koi wrapping ya bridge nahi, isliye escrow funds ke liye koi bridge risk nahi.\n4. EVM-compatible — standard Solidity, wallets, aur tooling waise hi chalte hain.\n5. Circle (USDC banane wali company) ne ise stablecoin finance aur payments ke liye purpose-built banaya hai.\n\nPoora Why Arc page (features, comparison vs general-purpose chains, aur resources) app mein Sidebar > Why Arc par hai.\n\nUseful links:\n- Official site: https://www.arc.io\n- Documentation: https://docs.arc.network\n- Testnet explorer: https://testnet.arcscan.app\n- Faucet (free testnet USDC): https://faucet.circle.com\n- GitHub (Arc node): https://github.com/circlefin/arc-node",
+            "en": "Why Client2Freelancer is built on Arc (Arc Network):\n\n1. USDC is the native gas — every transaction fee is paid in USDC, so costs are dollar-denominated, low, and predictable. No volatile ETH/BTC gas.\n2. Deterministic sub-second finality — escrow actions (deposit, approve, release) confirm almost instantly.\n3. Native USDC — no wrapping or bridges, so no bridge risk for escrow funds.\n4. EVM-compatible — standard Solidity, wallets, and tooling work as-is.\n5. Purpose-built for stablecoin finance and payments by Circle, the team behind USDC.\n\nThe full Why Arc page (features, comparison vs general-purpose chains, and resources) is in the app under Sidebar > Why Arc.\n\nUseful links:\n- Official site: https://www.arc.io\n- Documentation: https://docs.arc.network\n- Testnet explorer: https://testnet.arcscan.app\n- Faucet (free testnet USDC): https://faucet.circle.com\n- GitHub (Arc node): https://github.com/circlefin/arc-node",
+            "hi": "Client2Freelancer Arc Network par kyun bana hai:\n\n1. USDC native gas hai — har transaction fee USDC mein paid hoti hai, matlab costs dollar-denominated, low, aur predictable. Koi volatile ETH/BTC gas nahi.\n2. Deterministic sub-second finality — escrow actions (deposit, approve, release) almost instantly confirm hote hain.\n3. Native USDC — koi wrapping ya bridge nahi, isliye escrow funds ke liye koi bridge risk nahi.\n4. EVM-compatible — standard Solidity, wallets, aur tooling waise hi chalte hain.\n5. Circle (USDC banane wali company) ne ise stablecoin finance aur payments ke liye purpose-built banaya hai.\n\nPoora Why Arc page (features, comparison vs general-purpose chains, aur resources) app mein Sidebar > Why Arc par hai.\n\nUseful links:\n- Official site: https://www.arc.io\n- Documentation: https://docs.arc.network\n- Testnet explorer: https://testnet.arcscan.app\n- Faucet (free testnet USDC): https://faucet.circle.com\n- GitHub (Arc node): https://github.com/circlefin/arc-node",
         },
     },
     {
@@ -397,8 +397,8 @@ KB: List[Dict[str, Any]] = [
         "intent": "cctp_explain",
         "keywords": ["what is cctp", "what is cctp", "cctp kya", "cctp kya hai", "cctp meaning", "bridge kit", "what is the bridge", "cctp explain", "how does bridging work", "bridge kaise kaam", "cctp how", "circle cctp", "burn and mint", "cross chain transfer protocol"],
         "answer": {
-            "en": "**CCTP** (Cross-Chain Transfer Protocol) is Circle's native USDC bridge. Instead of wrapped tokens or liquidity pools, CCTP **burns** USDC on the source chain and **mints** the same USDC 1:1 on the destination chain.\n\nIn ArcBridge:\n\n1. You pick a source chain (Base Sepolia or Ethereum Sepolia) in the **Fund From Any Chain** card.\n2. Your USDC is burned on the source chain and Circle verifies the transfer (attestation, ~30-60 seconds).\n3. Fresh USDC is minted on Arc and auto-deposited into the escrow.\n\nBecause it is a native 1:1 transfer, there is no bridge liquidity risk and no wrapped \"USDC.e\" — the escrow holds real USDC.",
-            "hi": "**CCTP** (Cross-Chain Transfer Protocol) Circle ka native USDC bridge hai. Wrapped tokens ya liquidity pools ki jagah, CCTP source chain par USDC ko **burn** karta hai aur destination chain par wahi USDC 1:1 **mint** karta hai.\n\nArcBridge mein:\n\n1. **Fund From Any Chain** card mein source chain chunen (Base Sepolia ya Ethereum Sepolia).\n2. Aapka USDC source chain par burn hota hai aur Circle transfer verify karta hai (attestation, ~30-60 second).\n3. Arc par naya USDC mint hokar automatically escrow mein deposit ho jata hai.\n\nNative 1:1 transfer hone ki wajah se koi bridge liquidity risk nahi aur koi wrapped \"USDC.e\" nahi — escrow mein asli USDC hota hai.",
+            "en": "**CCTP** (Cross-Chain Transfer Protocol) is Circle's native USDC bridge. Instead of wrapped tokens or liquidity pools, CCTP **burns** USDC on the source chain and **mints** the same USDC 1:1 on the destination chain.\n\nIn Client2Freelancer:\n\n1. You pick a source chain (Base Sepolia or Ethereum Sepolia) in the **Fund From Any Chain** card.\n2. Your USDC is burned on the source chain and Circle verifies the transfer (attestation, ~30-60 seconds).\n3. Fresh USDC is minted on Arc and auto-deposited into the escrow.\n\nBecause it is a native 1:1 transfer, there is no bridge liquidity risk and no wrapped \"USDC.e\" — the escrow holds real USDC.",
+            "hi": "**CCTP** (Cross-Chain Transfer Protocol) Circle ka native USDC bridge hai. Wrapped tokens ya liquidity pools ki jagah, CCTP source chain par USDC ko **burn** karta hai aur destination chain par wahi USDC 1:1 **mint** karta hai.\n\nClient2Freelancer mein:\n\n1. **Fund From Any Chain** card mein source chain chunen (Base Sepolia ya Ethereum Sepolia).\n2. Aapka USDC source chain par burn hota hai aur Circle transfer verify karta hai (attestation, ~30-60 second).\n3. Arc par naya USDC mint hokar automatically escrow mein deposit ho jata hai.\n\nNative 1:1 transfer hone ki wajah se koi bridge liquidity risk nahi aur koi wrapped \"USDC.e\" nahi — escrow mein asli USDC hota hai.",
         },
     },
     {
@@ -421,8 +421,8 @@ KB: List[Dict[str, Any]] = [
         "intent": "multichain",
         "keywords": ["which chains", "other chains", "solana", "avalanche", "arbitrum", "polygon", "any chain", "more chains", "chain support", "supported chains", "base sepolia kyun", "only base", "why only two chains", "add more chains"],
         "answer": {
-            "en": "ArcBridge's **Fund From Any Chain** currently supports **Base Sepolia** and **Ethereum Sepolia** as source chains.\n\nCircle CCTP itself supports 20+ chains (including Solana, Avalanche, and Arbitrum), so more source chains can be added in the app with minimal work. If you'd like one added, let the project maintainers know.",
-            "hi": "ArcBridge ka **Fund From Any Chain** abhi **Base Sepolia** aur **Ethereum Sepolia** source chains support karta hai.\n\nCircle CCTP khud 20+ chains support karta hai (Solana, Avalanche, Arbitrum samet), isliye app mein aur source chains thode kaam mein add ho sakti hain. Agar koi add karwana hai to project maintainers ko bata dein.",
+            "en": "Client2Freelancer's **Fund From Any Chain** currently supports **Base Sepolia** and **Ethereum Sepolia** as source chains.\n\nCircle CCTP itself supports 20+ chains (including Solana, Avalanche, and Arbitrum), so more source chains can be added in the app with minimal work. If you'd like one added, let the project maintainers know.",
+            "hi": "Client2Freelancer ka **Fund From Any Chain** abhi **Base Sepolia** aur **Ethereum Sepolia** source chains support karta hai.\n\nCircle CCTP khud 20+ chains support karta hai (Solana, Avalanche, Arbitrum samet), isliye app mein aur source chains thode kaam mein add ho sakti hain. Agar koi add karwana hai to project maintainers ko bata dein.",
         },
     },
     {
@@ -493,8 +493,8 @@ def rule_based_answer(question: str, context: Dict[str, Any]) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # LLM fallback (Gemini free tier)
 # ---------------------------------------------------------------------------
-SYSTEM_PROMPT = """You are Escrow Copilot — ArcBridge's senior support engineer and built-in AI assistant.
-ArcBridge is a trustless USDC escrow platform on the Arc Network testnet (chain ID {chain_id}),
+SYSTEM_PROMPT = """You are Escrow Copilot — Client2Freelancer's senior support engineer and built-in AI assistant.
+Client2Freelancer is a trustless USDC escrow platform on the Arc Network testnet (chain ID {chain_id}),
 built on Circle's technology. You are an expert on the escrow lifecycle, on-chain troubleshooting,
 and the Circle CCTP cross-chain funding feature. Answer precisely, confidently, and helpfully.
 
@@ -513,7 +513,7 @@ PROJECT FACTS (be precise — never invent contract behavior, addresses, or hash
   prevents spam; the owner can rescue tokens sent directly to the contract, but
   ONLY the amount above funds locked in active escrows.
 
-CIRCLE CCTP — FUND FROM ANY CHAIN (ArcBridge live feature):
+CIRCLE CCTP — FUND FROM ANY CHAIN (Client2Freelancer live feature):
 - Users can fund an escrow with USDC that sits on another chain via the
   "Fund From Any Chain" card on the dashboard (powered by Circle CCTP + Bridge Kit).
 - Source chains: Base Sepolia or Ethereum Sepolia. Flow: wallet switches to the
@@ -665,9 +665,9 @@ async def answer(
     if not q:
         return {
             "answer": (
-                "Ask me anything about ArcBridge — escrows, disputes, wallet, gas. I'm listening."
+                "Ask me anything about Client2Freelancer — escrows, disputes, wallet, gas. I'm listening."
                 if lang == "en"
-                else "ArcBridge ke baare mein kuch bhi poochhein — escrow, dispute, wallet, gas. Main sun raha hoon."
+                else "Client2Freelancer ke baare mein kuch bhi poochhein — escrow, dispute, wallet, gas. Main sun raha hoon."
             ),
             "source": "rules",
         }

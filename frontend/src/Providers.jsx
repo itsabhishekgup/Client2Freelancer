@@ -18,7 +18,7 @@ const appUrl =
   typeof window !== "undefined" ? window.location.origin : "http://localhost:5173";
 
 const metadata = {
-  name: "ArcBridge Escrow",
+  name: "Client2Freelancer Escrow",
   description: "Secure USDC escrow on Arc Testnet",
   url: appUrl,
   icons: [`${appUrl}/arc-logo.svg`],

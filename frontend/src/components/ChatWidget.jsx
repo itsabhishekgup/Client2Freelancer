@@ -242,7 +242,7 @@ export default function ChatWidget() {
             {messages.length === 0 && !loading && (
               <div className="chat-welcome">
                 <p>
-                  Hello. I'm Escrow Copilot — trained on the full ArcBridge
+                  Hello. I'm Escrow Copilot — trained on the full Client2Freelancer
                   lifecycle. Ask me about creating escrows, deposits, disputes,
                   refunds, wallet setup, or any error you run into, in English
                   or Hindi.

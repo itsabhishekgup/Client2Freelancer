@@ -1,5 +1,5 @@
 /* ============================================================
-   ArcBridge — Dark Futuristic Theme
+   Client2Freelancer — Dark Futuristic Theme
    Loaded AFTER dashboard.css in App.jsx so these overrides win.
    Black/navy glass UI, purple-blue neon accents.
    ============================================================ */
@@ -2940,7 +2940,7 @@ select:focus {
     }
 
     .brand-suffix {
-      display: none; /* ultra-narrow: keep "ArcBridge" so the logo area isn't empty */
+      display: none; /* ultra-narrow: keep "Client2Freelancer" so the logo area isn't empty */
     }
   }
 

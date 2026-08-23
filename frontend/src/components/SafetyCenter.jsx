@@ -754,7 +754,7 @@ function SafetyCenter({ onNavigate }) {
             </div>
             <div className="summary-item">
               <span>Source</span>
-              <strong>ArcBridge Contract</strong>
+              <strong>Client2Freelancer Contract</strong>
             </div>
             <div className="summary-item">
               <span>Destination</span>

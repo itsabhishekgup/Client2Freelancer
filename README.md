@@ -1,8 +1,8 @@
-# 🔗 ArcBridge — Programmable USDC Escrow on Arc
+# 🔗 Client2Freelancer — Programmable USDC Escrow on Arc
 
 > Trustless escrow payments with **on-chain custody, expiry timelocks, and dispute arbitration** — built on the Arc network.
 
-ArcBridge is a full-stack escrow protocol that lets clients and freelancers transact without trusting each other. Funds are locked in a smart contract, work is submitted on-chain, and disputes are resolved by a neutral arbitrator — every step verifiable on-chain.
+Client2Freelancer is a full-stack escrow protocol that lets clients and freelancers transact without trusting each other. Funds are locked in a smart contract, work is submitted on-chain, and disputes are resolved by a neutral arbitrator — every step verifiable on-chain.
 
 **Live contract:** [`0xa12b4775b2eb4741aabbb8e2aade41e9ad0665e4`](https://testnet.arcscan.app/address/0xa12b4775b2eb4741aabbb8e2aade41e9ad0665e4) on Arc Testnet (chain id `5042002`) — **✅ source verified on ArcScan** (Solidity `v0.8.35`, ABI published)
 
@@ -122,7 +122,7 @@ pnpm dev               # http://localhost:5173
 
 ## 🤖 Escrow Copilot (optional AI)
 
-The floating **chat widget** (bottom-right) is **Escrow Copilot** — ArcBridge's
+The floating **chat widget** (bottom-right) is **Escrow Copilot** — Client2Freelancer's
 built-in assistant, trained on the full escrow lifecycle:
 
 1. **Instant rules** — a curated knowledge base (30+ intents, English + Hindi)
@@ -151,7 +151,7 @@ elsewhere for anything custom — the app never breaks because of the AI part.
 
 ## 💳 Wallet connect
 
-ArcBridge uses the **Reown (WalletConnect) modal** for wallet connections —
+Client2Freelancer uses the **Reown (WalletConnect) modal** for wallet connections —
 users connect their own wallet (e.g. MetaMask-style injected wallets that
 support Arc Testnet, or WalletConnect). All escrow actions are signed from
 the connected wallet directly.

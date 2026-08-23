@@ -9,8 +9,7 @@
     "lint": "oxlint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preview": "vite preview",
-    "gen:force-mobile": "node scripts/gen-force-mobile.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@circle-fin/adapter-ethers-v6": "^1.10.1",

@@ -86,7 +86,7 @@ const FAQ = [
   },
   {
     q: "What is CCTP?",
-    a: "CCTP (Cross-Chain Transfer Protocol) is Circle's native USDC bridge. Instead of wrapped tokens or liquidity pools, CCTP burns USDC on the source chain and mints the same USDC 1:1 on the destination chain. ArcBridge uses it in the 'Fund From Any Chain' feature so you can fund an escrow from Base Sepolia or Ethereum Sepolia in one click.",
+    a: "CCTP (Cross-Chain Transfer Protocol) is Circle's native USDC bridge. Instead of wrapped tokens or liquidity pools, CCTP burns USDC on the source chain and mints the same USDC 1:1 on the destination chain. Client2Freelancer uses it in the 'Fund From Any Chain' feature so you can fund an escrow from Base Sepolia or Ethereum Sepolia in one click.",
   },
 ];
 
@@ -110,7 +110,7 @@ function HelpCenter({ onNavigate }) {
       <section className="dashboard-header">
         <div className="theme-badge">Arc Network • Help Center</div>
         <h1>Help Center</h1>
-        <p className="dashboard-lead">A 2-minute guide to escrows on ArcBridge.</p>
+        <p className="dashboard-lead">A 2-minute guide to escrows on Client2Freelancer.</p>
       </section>
 
       <button

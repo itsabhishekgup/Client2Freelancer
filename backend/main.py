@@ -293,7 +293,7 @@ async def lifespan(_: FastAPI):
             pass
 
 
-app = FastAPI(title="ArcBridge Live API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Client2Freelancer Live API", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,

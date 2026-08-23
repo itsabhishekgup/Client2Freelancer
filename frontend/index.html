@@ -6,69 +6,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="ArcBridge — trustless USDC escrow payments on Arc Network. Create, cancel, dispute, and resolve escrows on-chain."
+      content="Client2Freelancer — trustless USDC escrow payments on Arc Network. Create, cancel, dispute, and resolve escrows on-chain."
     />
     <meta name="theme-color" content="#0a0b0d" />
-    <title>ArcBridge — Secure USDC Escrow Platform</title>
+    <title>Client2Freelancer — Secure USDC Escrow Platform</title>
     <script>
-      // Mobile browser "Desktop site" mode forces a ~980px layout viewport and
-      // ignores the width=device-width meta. On a phone that makes the app fall
-      // back to desktop CSS (everything tiny/broken). Detect it here, before
-      // first paint, and flag <html class="force-mobile"> so force-mobile.css
-      // can re-apply the mobile layout. Real desktop is never affected:
-      // a desktop has no touch screen or its window is narrower than the screen.
+      // On mobile browsers, "Desktop site" / "Request Desktop Website" mode
+      // usually widens the layout viewport — but on some phones it does not
+      // (iOS Safari and narrow Android Chrome keep width=device-width), so
+      // the mobile CSS + hamburger drawer stays active and the desktop UI
+      // never shows. Detect that case and force a 1920px desktop layout
+      // viewport so the real desktop layout (sidebar, no hamburger) renders.
+      // Normal mobile and real desktop are never touched.
       (function () {
         try {
-          var root = document.documentElement;
+          // A phone: touch capable + CSS screen width (physical / DPR) <= 600.
+          var dpr = window.devicePixelRatio || 1;
+          var cssScreen = window.screen ? window.screen.width / dpr : 0;
+          var touchPhone =
+            (navigator.maxTouchPoints || 0) > 0 &&
+            cssScreen > 0 &&
+            cssScreen <= 600;
+          if (!touchPhone) return;
 
-          function isDesktopModeOnPhone() {
-            var touch =
-              "ontouchstart" in window || (navigator.maxTouchPoints || 0) > 0;
-            var s = window.screen ? window.screen.width : 0;
-            return touch && s > 0 && s <= 600 && window.innerWidth > s + 100;
-          }
+          // Desktop mode on the phone: the layout viewport is already wide
+          // (Android Chrome: ~980px+) OR the UA claims a desktop OS.
+          var ua = navigator.userAgent;
+          var desktopUA =
+            /Macintosh|Windows NT|X11|Linux/.test(ua) &&
+            !/Mobile|Android|iPhone|iPad|iPod/.test(ua);
+          var alreadyWide = window.innerWidth > 700;
+          if (!desktopUA && !alreadyWide) return;
 
-          // Add/remove the force-mobile class + scale vars. Never forces on a
-          // real desktop or normal mobile — only phone + Desktop-site mode.
-          function applyForceMobile(enabled) {
-            if (!isDesktopModeOnPhone()) {
-              root.classList.remove("force-mobile");
-              root.style.removeProperty("--fm-k");
-              root.style.removeProperty("--fm-w");
-              return;
-            }
-            var s = window.screen ? window.screen.width : 0;
-            var i = window.innerWidth;
-            if (enabled) {
-              root.classList.add("force-mobile");
-              if (s > 0) {
-                root.style.setProperty("--fm-k", String(i / s));
-                root.style.setProperty("--fm-w", String(s));
-              }
-            } else {
-              root.classList.remove("force-mobile");
-              root.style.removeProperty("--fm-k");
-              root.style.removeProperty("--fm-w");
-            }
-          }
-
-          // Exposed so the Settings toggle can switch live without a reload.
-          window.__arcApplyForceMobile = applyForceMobile;
-
-          if (isDesktopModeOnPhone()) {
-            var pref = "1";
-            try {
-              pref = localStorage.getItem("arcbridge-force-mobile") || "1";
-            } catch (e) {
-              /* ignore */
-            }
-            if (pref !== "0") applyForceMobile(true);
-          }
-
-          // Keep the scale factors correct across rotation / resize.
-          window.addEventListener("resize", function () {
-            if (root.classList.contains("force-mobile")) applyForceMobile(true);
-          });
+          var vp = document.querySelector('meta[name="viewport"]');
+          if (vp) vp.setAttribute("content", "width=1920, initial-scale=1");
         } catch (e) {
           /* never block first paint */
         }

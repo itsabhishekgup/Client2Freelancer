@@ -3,18 +3,18 @@ import "./styles/globals.css";
 import "./styles/dashboard.css";
 import "./styles/dark-theme.css";
 import "./styles/safety-center.css";
-import "./styles/force-mobile.css"; // mobile-browser "Desktop site" mode fix
+import "./styles/mobile.css"; // mobile-only (≤768px) premium layout — desktop untouched
 
 import Landing from "./components/Landing";
 import Navbar from "./components/Navbar";
 import Settings from "./components/Settings";
 import Sidebar from "./components/Sidebar";
+import BottomNav from "./components/BottomNav";
 import Dashboard from "./components/Dashboard";
 import HelpCenter from "./components/HelpCenter";
 import WhyArc from "./components/WhyArc";
 import AnalyticsPanel from "./components/AnalyticsPanel";
 import SafetyCenter from "./components/SafetyCenter";
-import ForceMobileBanner from "./components/ForceMobileBanner";
 import ChatWidget from "./components/ChatWidget";
 
 function App() {
@@ -38,19 +38,6 @@ function App() {
   const [showActivityFeed, setShowActivityFeed] = useState(
     () => localStorage.getItem("arcbridge-show-feed") !== "0",
   );
-  const [forceMobile, setForceMobile] = useState(
-    () => localStorage.getItem("arcbridge-force-mobile") !== "0",
-  );
-
-  // Live-switch the force-mobile class from the Settings toggle (no reload).
-  // On a real desktop / normal mobile this is a no-op by design.
-  const handleSetForceMobile = (value) => {
-    setForceMobile(value);
-    localStorage.setItem("arcbridge-force-mobile", value ? "1" : "0");
-    if (typeof window !== "undefined" && window.__arcApplyForceMobile) {
-      window.__arcApplyForceMobile(value);
-    }
-  };
 
   useEffect(() => {
     document.documentElement.dataset.accent = accent;
@@ -107,15 +94,12 @@ function App() {
     setDefaultExpiryDays,
     showActivityFeed,
     setShowActivityFeed,
-    forceMobile,
-    setForceMobile: handleSetForceMobile,
   };
 
   if (view === "landing") {
     return (
       <>
         <Landing onLaunch={handleLaunch} />
-        <ForceMobileBanner />
         <ChatWidget />
       </>
     );
@@ -189,7 +173,7 @@ function App() {
         </div>
       )}
       </div>
-      <ForceMobileBanner />
+      <BottomNav activeSection={activeSection} onNavigate={handleNavigate} />
       <ChatWidget />
     </>
   );

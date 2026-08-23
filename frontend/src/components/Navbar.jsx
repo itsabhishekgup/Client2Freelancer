@@ -123,7 +123,7 @@ function Navbar({ onNavigate }) {
           <img src="/arc-logo.svg" alt="Arc logo" className="brand-image" />
           <div className="brand-copy">
             <h2>
-              ArcBridge <span className="brand-suffix">Escrow</span>
+              Client2Freelancer <span className="brand-suffix">Escrow</span>
             </h2>
             <p>Secure Payments on Arc</p>
           </div>

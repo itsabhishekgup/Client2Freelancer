@@ -75,7 +75,7 @@ function SafetySummaryCard({ onNavigate }) {
     <section className="card safety-summary-card">
       <div className="summary-header">
         <div>
-          <h3>🛡️ ArcBridge Safety</h3>
+          <h3>🛡️ Client2Freelancer Safety</h3>
           <p>Contract security status</p>
         </div>
         <span className={`safety-summary-state safety-summary-state--${statusState}`}>

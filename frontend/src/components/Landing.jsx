@@ -118,7 +118,7 @@ function Landing({ onLaunch }) {
           <div className="landing-logo">
             <img src="/arc-logo.svg" alt="Arc logo" />
             <div>
-              <h2>ArcBridge</h2>
+              <h2>Client2Freelancer</h2>
               <p>Escrow on Arc</p>
             </div>
           </div>
@@ -274,7 +274,7 @@ function Landing({ onLaunch }) {
             Launch the App →
           </button>
           <br />
-          ArcBridge Escrow · Built on Arc Network · Powered by Circle USDC
+          Client2Freelancer Escrow · Built on Arc Network · Powered by Circle USDC
           <span className="landing-footer-sep" aria-hidden="true"> · </span>
           <button type="button" className="landing-footer-link" onClick={() => onLaunch?.("why-arc")}>
             Why Arc?

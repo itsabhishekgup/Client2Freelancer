@@ -11,21 +11,15 @@ const NAV_ITEMS = [
   { id: "settings", icon: "⚙️", label: "Settings" },
 ];
 
-const isForceMobile = () =>
-  typeof document !== "undefined" &&
-  document.documentElement.classList.contains("force-mobile");
-
 function Sidebar({ activeSection = "dashboard", onNavigate }) {
   const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined"
-      ? window.innerWidth <= 768 || isForceMobile()
-      : false
+    typeof window !== "undefined" ? window.innerWidth <= 768 : false
   );
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768 || isForceMobile());
+      setIsMobile(window.innerWidth <= 768);
     };
 
     handleResize();
@@ -97,7 +91,7 @@ function Sidebar({ activeSection = "dashboard", onNavigate }) {
                 className="brand-image brand-image--sidebar"
               />
               <div className="brand-copy">
-                <h2>ArcBridge Escrow</h2>
+                <h2>Client2Freelancer Escrow</h2>
                 <p>Secure Payments on Arc</p>
               </div>
             </div>

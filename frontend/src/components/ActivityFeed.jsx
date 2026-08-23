@@ -2,7 +2,7 @@ import ActivityItem from "./ActivityItem";
 
 function ActivityFeed({ activityItems, feedLoading }) {
   return (
-    <section className="card activity-card">
+    <section id="activity" className="card activity-card">
       <div className="summary-header">
         <div>
           <h3>Recent Activity</h3>

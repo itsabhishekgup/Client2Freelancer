@@ -1,4 +1,4 @@
-# ArcBridge — Session Handoff (Aug 14, 2026)
+# Client2Freelancer — Session Handoff (Aug 14, 2026)
 
 ## 🧪 Frontend test suite added (Aug 20, 2026) — 79 tests
 
@@ -222,7 +222,7 @@ Also: `markStep` memoized (`useCallback([])`) and moved above `runBridge` (it's 
 - **Tests:** `tests/test_assistant.py` (10 new; 48 total pass). `.env.example` + README "AI Assistant" section updated.
 - Widget is right-anchored → works under force-mobile too (ICB ≈ 360 CSS on phone).
 - **Bilingual update:** every KB intent now has EN + HI/Hinglish answers; `detect_language()` (Devanagari or distinctive Hinglish tokens) picks the matching one — English question → English answer, Hinglish/Devanagari → Hindi. LLM system prompt got a strict "match the user's language" rule + detected-language hint. KB expanded 20 → 25 intents (what_is_escrow, min_amount, escrow_id, wrong_address/rescue, release_time, production/mainnet). "escrow" removed from Hinglish tokens, "ai" keyword dropped (substring false positives). Tests: 67 pass (incl. EN/HI matching).
-- **Professional rewrite:** all 25 KB answers rewritten emoji-free with a consistent structure (short intro → numbered steps → outcome), English + polite Hindi/Hinglish. LLM persona = "senior support engineer" with strict no-emoji/no-slang + language-match rules; fallbacks professionalized. Facts corrected to match the contract (amount > 0 — no 1 USDC minimum; cap 50; rescue above locked funds only). Frontend widget: "ArcBridge Support" header, sparkle avatar + SVG send button (no 🤖/➤), professional welcome + quick replies + error copy.
+- **Professional rewrite:** all 25 KB answers rewritten emoji-free with a consistent structure (short intro → numbered steps → outcome), English + polite Hindi/Hinglish. LLM persona = "senior support engineer" with strict no-emoji/no-slang + language-match rules; fallbacks professionalized. Facts corrected to match the contract (amount > 0 — no 1 USDC minimum; cap 50; rescue above locked funds only). Frontend widget: "Client2Freelancer Support" header, sparkle avatar + SVG send button (no 🤖/➤), professional welcome + quick replies + error copy.
 
 ## 🤖 Copilot — Why Arc intent
 - **assistant.py:** new `why_arc` intent (13 keywords EN/HI: "why arc", "what is arc", "arc network kya hai", "why did you choose arc"…) — bilingual answer: 5 reasons (USDC native gas, sub-second finality, native USDC no bridge, EVM-compatible, Circle-built) + pointer to Sidebar > Why Arc page + 5 real resource links (arc.io, docs.arc.network, testnet.arcscan.app, faucet.circle.com, github.com/circlefin/arc-node).
@@ -245,7 +245,7 @@ Also: `markStep` memoized (`useCallback([])`) and moved above `runBridge` (it's 
 
 ## ⚡ Why Arc? — knowledge page
 - **Sidebar:** "Why Arc?" button at the very bottom (desktop: between nav and footnote; mobile drawer: after Help Center, before footnote) — opens its own page, not a dashboard section.
-- **WhyArc.jsx:** knowledge page with real Arc facts (web-verified, no invented claims): What is Arc (Circle's stablecoin-native EVM L1), 6 highlight cards (USDC native gas, deterministic sub-second finality, EVM-compatible, built-in FX engine, opt-in privacy, built by Circle), 4 "Why ArcBridge chose Arc" reasons (dollar fees, fast finality, native USDC no bridges, EVM tooling), and a live network-details table (Arc Testnet, Chain 5042002, USDC 6 decimals, contract 0x788BD809…D0ff3, testnet.arcscan.app). CTA buttons back to dashboard/create.
+- **WhyArc.jsx:** knowledge page with real Arc facts (web-verified, no invented claims): What is Arc (Circle's stablecoin-native EVM L1), 6 highlight cards (USDC native gas, deterministic sub-second finality, EVM-compatible, built-in FX engine, opt-in privacy, built by Circle), 4 "Why Client2Freelancer chose Arc" reasons (dollar fees, fast finality, native USDC no bridges, EVM tooling), and a live network-details table (Arc Testnet, Chain 5042002, USDC 6 decimals, contract 0x788BD809…D0ff3, testnet.arcscan.app). CTA buttons back to dashboard/create.
 - **App.jsx:** `isWhyArcPage` branch renders `<WhyArc/>`; **dark-theme.css:** `.whyarc-*` styles (flat Linear-consistent cards/tables) + `.sidebar-whyarc-btn`; force-mobile regenerated (mobile: grid → 1 column).
 - **Verified live:** sidebar button present (desktop + mobile drawer) ✓, page renders 6 cards + 4 reasons + 6 network rows ✓, back button works ✓. Build ✓ lint 0 ✓.
 
@@ -261,7 +261,7 @@ Also: `markStep` memoized (`useCallback([])`) and moved above `runBridge` (it's 
 - **Verified live:** `/api/chat` — "What is the meaning of life?" → `source: llm` ✓ · "Do I need to pay tax..." → llm ✓ · Hindi bonus question → **Devanagari Hindi llm answer** ✓ · rules questions still hit `rules` (fast path) ✓ · 82/82 tests · preview widget: custom onboarding question → full AI answer renders with chain ID + RPC ✓.
 
 ## 🤖 Escrow Copilot — renamed + A-to-Z trained
-- **Branding:** 'ArcBridge Support' → **Escrow Copilot** everywhere — ChatWidget header/FAB aria/welcome, backend greeting + bot_identity answers, Gemini system prompt persona. Quick replies: added 'Why are my funds not released?' chip.
+- **Branding:** 'ArcBridge Support' → **Escrow Copilot** everywhere — ChatWidget header/FAB aria/welcome, backend greeting + bot_identity answers, Gemini system prompt persona.
 - **Training (12 new intents, 20 → 32):** `funds_not_released` (4-step diagnosis: funded→submitted→approved→released), `tx_failed` (gas/network/approval/role), `wrong_network` (Chain ID 5042002), `allowance`, `escrow_not_found`, `who_arbitrator`, `cancel_after_funded`, `escrow_limit` (per-client cap), `rescue_process` (Safety Center), `refund_timing`, `contact_support`, `data_refresh` (30s auto-refresh + Settings). All bilingual EN/HI.
 - **Tie-break fix in `match_intent`:** `_score` returns `(hits, longest_keyword_len)` tuple — specific phrase ('usdc not approved') now beats a generic word ('approve') in an earlier intent. Also added exact 'who is the arbitrator' keyword.
 - **Verified live:** 82/82 tests pass; curl — 'Why my funds not released?' → EN rules diagnosis ✓, 'transaction failed kyun ho raha hai' → HI ✓, refund/revert/cap/arbitrator → correct intents ✓; preview widget shows Escrow Copilot header + new quick reply → full diagnosis answer renders. Build ✓ lint 0 ✓. README updated.
@@ -316,7 +316,7 @@ Also: `markStep` memoized (`useCallback([])`) and moved above `runBridge` (it's 
 - **Providers.jsx:** `baseSepolia` + `sepolia` added to AppKit networks (wallet chain switching supported).
 - **Verified:** build ✓ lint 0/0 ✓; preview — card renders, escrow ID syncs from CreateEscrow, chain selector + button state work. Stale vite optimizer cache cleared (removed `node_modules/.vite`) after removing old Circle SDK — `@circle-fin/w3s-pw-web-sdk` fully gone, only bridge-kit + adapters remain.
 - **Not tested:** live bridge tx (needs a funded Base Sepolia wallet with USDC + ETH gas — user step; faucet link included in UI).
-- **Why Arc page — Circle ecosystem section (2026-08-17):** "Built on the Circle ecosystem" — 4 cards (USDC native gas, CCTP cross-chain transfers, Gateway unified balance, Circle developer platform) + highlighted "🌉 Fund From Any Chain — powered by Circle CCTP" note with "Live in ArcBridge" badge. Landing page pe bhi "Fund your escrow from any chain" CCTP section (badge + 4-node flow mock Base Sepolia → Attestation → Arc → Escrow Funded + Try It Now CTA).
+- **Why Arc page — Circle ecosystem section (2026-08-17):** "Built on the Circle ecosystem" — 4 cards (USDC native gas, CCTP cross-chain transfers, Gateway unified balance, Circle developer platform) + highlighted "🌉 Fund From Any Chain — powered by Circle CCTP" note with "Live in Client2Freelancer" badge. Landing page pe bhi "Fund your escrow from any chain" CCTP section (badge + 4-node flow mock Base Sepolia → Attestation → Arc → Escrow Funded + Try It Now CTA).
 
 ## ✨ Escrow Copilot — markdown formatting + polish (completed)
 - **ChatWidget.jsx:** lightweight markdown renderer — `**bold**`, `*italic*`, `` `inline code` ``, `-`/`*`/`•` bullets (nested support), numbered lists with badges, `#` headings, `---` dividers, fenced ```code blocks``` (language tag stripped, monospace, scrollable)

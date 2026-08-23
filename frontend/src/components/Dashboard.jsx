@@ -69,6 +69,35 @@ function Dashboard(props) {
   const [feedLoading, setFeedLoading] = useState(false);
   const [txVisibleCount, setTxVisibleCount] = useState(3);
   const [selectedEscrow, setSelectedEscrow] = useState(null);
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= 768,
+  );
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Mobile page model: each bottom-nav item maps to its own page so the
+  // dashboard shows only Home content (progress + create + fund) and every
+  // other section renders on its dedicated page. Desktop renders everything
+  // on one scroll (unchanged).
+  const mobilePage = isMobile
+    ? activeSection === "my-escrows" ||
+      activeSection === "transactions" ||
+      activeSection === "activity" ||
+      activeSection === "wallet"
+      ? activeSection
+      : "home"
+    : null;
+
+  const showMobileSection = (section) => {
+    if (!isMobile) return true;
+    if (mobilePage === "home") return section === "home";
+    return section === mobilePage;
+  };
 
   const { address: connectedAddress, walletProvider } = useWalletBridge();
   const providerSource = useMemo(
@@ -115,13 +144,19 @@ function Dashboard(props) {
   };
 
   useEffect(() => {
+    // Mobile: each nav tab is a full page — jump straight to the top on
+    // switch. Desktop: scroll to the matching dashboard section (unchanged).
+    if (isMobile) {
+      window.scrollTo({ top: 0, behavior: "instant" });
+      return;
+    }
     const target = document.getElementById(activeSection);
     if (target) {
       window.requestAnimationFrame(() => {
         target.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     }
-  }, [activeSection]);
+  }, [activeSection, isMobile]);
 
   useEffect(() => {
     let cancelled = false;
@@ -586,16 +621,51 @@ function Dashboard(props) {
   return (
     <main className="dashboard">
       <section id="dashboard" className="dashboard-header">
-        <div className="theme-badge">Arc Network • Live Escrow Dashboard</div>
-        <h1>Secure USDC Escrow Platform</h1>
-        <p className="dashboard-lead">
-          Trustless payments for freelancers powered by Arc Network.
-        </p>
+        {isMobile && mobilePage !== "home" ? (
+          <>
+            <div className="theme-badge">
+              {mobilePage === "wallet"
+                ? "Wallet"
+                : mobilePage === "my-escrows"
+                  ? "My Escrows"
+                  : mobilePage === "activity"
+                    ? "Recent Activity"
+                    : "Transactions"}
+            </div>
+            <h1>
+              {mobilePage === "wallet"
+                ? "Wallet Overview"
+                : mobilePage === "my-escrows"
+                  ? "My Escrows"
+                  : mobilePage === "activity"
+                    ? "Recent Activity"
+                    : "Transactions"}
+            </h1>
+            <p className="dashboard-lead">
+              {mobilePage === "wallet"
+                ? "Your connected wallet status and balance."
+                : mobilePage === "my-escrows"
+                  ? "Live escrow records pulled from the contract."
+                  : mobilePage === "activity"
+                    ? "Live blockchain events from the escrow contract."
+                    : "Latest on-chain activity and transaction hashes."}
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="theme-badge">Arc Network • Live Escrow Dashboard</div>
+            <h1>Secure USDC Escrow Platform</h1>
+            <p className="dashboard-lead">
+              Trustless payments for freelancers powered by Arc Network.
+            </p>
+          </>
+        )}
       </section>
 
       <div className="dashboard-grid">
         <section className="dashboard-main">
-          <section className="card progress-stepper" aria-label="Escrow progress">
+          {showMobileSection("home") && (
+            <section className="card progress-stepper" aria-label="Escrow progress">
             <div className="progress-stepper-header">
               <div>
                 <h3>Escrow Progress</h3>
@@ -663,33 +733,43 @@ function Dashboard(props) {
               )}
             </div>
           </section>
+          )}
 
-          <section id="create-escrow" className="dashboard-block">
-            <CreateEscrow
-              escrowId={
-                typeof escrowId === "string" && escrowId.trim().length > 0
-                  ? escrowId
-                  : internalEscrowId
-              }
-              setEscrowId={handleSetEscrowId}
-              setCurrentStep={handleSetCurrentStep}
-              onBlockchainUpdate={triggerBlockchainRefresh}
-              defaultExpiryDays={defaultExpiryDays}
-            />
+          {showMobileSection("home") && (
+            <section id="create-escrow" className="dashboard-block">
+              <CreateEscrow
+                escrowId={
+                  typeof escrowId === "string" && escrowId.trim().length > 0
+                    ? escrowId
+                    : internalEscrowId
+                }
+                setEscrowId={handleSetEscrowId}
+                setCurrentStep={handleSetCurrentStep}
+                onBlockchainUpdate={triggerBlockchainRefresh}
+                defaultExpiryDays={defaultExpiryDays}
+              />
+            </section>
+          )}
 
-            <FundFromAnyChain
-              escrowId={resolvedEscrowId ?? ""}
-              onBlockchainUpdate={triggerBlockchainRefresh}
-            />
-          </section>
+          {showMobileSection("home") && (
+            <section className="dashboard-block">
+              <FundFromAnyChain
+                escrowId={resolvedEscrowId ?? ""}
+                onBlockchainUpdate={triggerBlockchainRefresh}
+              />
+            </section>
+          )}
 
-          {showActivityFeed && (
+          {showMobileSection("activity") && showActivityFeed && (
             <ActivityFeed activityItems={activityItems} feedLoading={feedLoading} />
           )}
 
-          <EscrowsList escrows={recentEscrows} onSelectEscrow={setSelectedEscrow} />
+          {showMobileSection("my-escrows") && (
+            <EscrowsList escrows={recentEscrows} onSelectEscrow={setSelectedEscrow} />
+          )}
 
-          <section id="transactions" className="card dashboard-section">
+          {showMobileSection("transactions") && (
+            <section id="transactions" className="card dashboard-section">
             <div className="summary-header">
               <div>
                 <h3>💸 Transactions</h3>
@@ -774,9 +854,11 @@ function Dashboard(props) {
               </div>
             )}
           </section>
+          )}
 
         </section>
 
+        {showMobileSection("wallet") && (
         <aside className="dashboard-side">
           <WalletPanel wallet={wallet} />
 
@@ -809,6 +891,7 @@ function Dashboard(props) {
             error={summaryError}
           />
         </aside>
+        )}
       </div>
 
       <EscrowDetailModal

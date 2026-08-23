@@ -1,5 +1,5 @@
 /* ============================================================
-   ArcBridge — Safety Center
+   Client2Freelancer — Safety Center
    Loaded AFTER dark-theme.css so these win. Flat Linear-style
    surfaces matching the current dashboard (hairline borders,
    muted typography, restrained shadows).
@@ -570,7 +570,7 @@
 /* ============================================================
    Desktop side-column polish (>768px only)
    Uniform, tighter rhythm across the four side cards (Wallet
-   Overview, ArcBridge Safety, Need Help, Escrow Summary) so the
+   Overview, Client2Freelancer Safety, Need Help, Escrow Summary) so the
    dashboard stays compact and needs less scrolling. Mobile
    (≤768px) and compact density keep their own rules — their
    selectors have equal-or-higher relevance and come from later

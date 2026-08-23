@@ -1,0 +1,599 @@
+/* ============================================================
+   Mobile-first premium Web3 redesign — MOBILE ONLY.
+
+   Every rule in this file lives inside @media (max-width: 768px),
+   so the desktop/tablet-wide layout is completely untouched.
+   Loaded LAST in App.jsx so it wins the cascade at the mobile
+   breakpoint (visual inspiration: the Client2Freelancer mobile reference).
+
+   Guarantees enforced here:
+   - no horizontal scroll / overflow / clipped text
+   - compact cards, readable type, touch-friendly targets
+   - subtle teal/green/blue accents on a near-black background
+   - bottom navigation bar for one-handed reach
+   ============================================================ */
+
+/* The bottom nav element is rendered on every view but only styled
+   (and therefore visible) at the mobile breakpoint below. */
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* ---- Near-black canvas ---- */
+  html,
+  body {
+    min-width: 0;
+    overflow-x: clip;
+    background: #050608;
+  }
+
+  .app-shell {
+    background: #050608;
+  }
+
+  /* Compact sticky header — Client2Freelancer Escrow + Arc Testnet badge + wallet */
+  .top-navbar {
+    height: 54px;
+    padding: 0 12px 0 66px;
+    background: rgba(7, 8, 10, 0.86);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(38, 45, 54, 0.72);
+  }
+
+  .nav-left {
+    gap: 6px;
+  }
+
+  .logo-section {
+    gap: 7px;
+  }
+
+  .brand-image {
+    width: 24px;
+    height: 24px;
+  }
+
+  .brand-copy h2 {
+    font-size: 13px;
+  }
+
+  .network-badge {
+    padding: 3px 8px;
+    font-size: 9.5px;
+    border-radius: 999px;
+    background: rgba(45, 212, 191, 0.1);
+    border: 1px solid rgba(45, 212, 191, 0.28);
+    color: #5eead4;
+  }
+
+  /* Wallet pill — compact, prominent, right-aligned */
+  .nav-right {
+    gap: 6px;
+  }
+
+  .wallet-pill {
+    max-width: 150px;
+    padding: 8px 13px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #14b8a6, #0ea5e9);
+    box-shadow: 0 4px 14px rgba(14, 165, 233, 0.28);
+  }
+
+  .wallet-pill--connected {
+    background: #101418;
+    border: 1px solid rgba(45, 212, 191, 0.32);
+    box-shadow: none;
+  }
+
+  .wallet-pill-line {
+    font-size: 12px;
+  }
+
+  /* ---- Dashboard canvas ---- */
+  .app-layout {
+    align-items: stretch;
+    flex: 1 0 auto;
+  }
+
+  .dashboard {
+    padding: 14px 12px 96px; /* bottom room for the nav bar */
+    gap: 14px;
+    min-height: calc(100svh - 54px); /* fill the viewport — no blank void */
+  }
+
+  .dashboard-header {
+    padding: 2px 2px 0;
+    text-align: left;
+  }
+
+  .dashboard-header h1 {
+    font-size: 22px;
+    line-height: 1.2;
+    margin: 6px 0 4px;
+    letter-spacing: -0.02em;
+  }
+
+  .dashboard-header::after {
+    width: 34px;
+    height: 3px;
+    margin-top: 2px;
+    background: linear-gradient(90deg, #14b8a6, #0ea5e9);
+  }
+
+  .dashboard-lead {
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+
+  /* Single-column stack — mobile pages render one section at a time
+     (Home = progress + create + fund; Wallet / Activity / Escrows /
+     Transactions each have their own page), so no reordering is needed. */
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    display: flex;
+    flex-direction: column;
+    flex: 1 0 auto; /* fill the dashboard's min-height — no blank void */
+  }
+
+  .dashboard-main,
+  .dashboard-side {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+    flex: 1 0 auto; /* stretch to fill the page height */
+  }
+
+  /* ---- Compact cards: premium dark surfaces with a soft tint ---- */
+  .card,
+  .dashboard-section,
+  .wallet-card,
+  .escrow-summary,
+  .activity-card,
+  .progress-stepper,
+  .create-escrow-card,
+  .fund-card,
+  .quick-help-card,
+  .safety-summary-card,
+  .history-card {
+    border-radius: 16px;
+    background:
+      linear-gradient(180deg, rgba(20, 24, 30, 0.9), rgba(11, 13, 16, 0.95));
+    border: 1px solid #1c2128;
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 10px 24px rgba(0, 0, 0, 0.35);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .card::before,
+  .create-escrow-card::before,
+  .wallet-card::before,
+  .activity-card::before,
+  .history-card::before,
+  .help-section::before,
+  .escrow-summary::before,
+  .progress-stepper::before {
+    display: none;
+  }
+
+  .progress-stepper,
+  .wallet-card,
+  .escrow-summary,
+  .activity-card,
+  .dashboard-section,
+  .fund-card,
+  .quick-help-card,
+  .safety-summary-card,
+  .create-escrow-card {
+    padding: 16px 15px;
+  }
+
+  /* ---- Wallet Overview (hero card, first on mobile) ---- */
+  .wallet-card {
+    padding: 18px 16px;
+    border-color: rgba(20, 184, 166, 0.32);
+    background:
+      radial-gradient(130% 150% at 100% 0%, rgba(14, 165, 233, 0.14), transparent 55%),
+      radial-gradient(130% 150% at 0% 100%, rgba(20, 184, 166, 0.12), transparent 55%),
+      linear-gradient(180deg, rgba(20, 24, 30, 0.92), rgba(11, 13, 16, 0.96));
+    box-shadow:
+      0 0 0 1px rgba(20, 184, 166, 0.08) inset,
+      0 14px 30px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Non-home pages (Wallet / Escrows / Activity / Txn) fill the column:
+     the last card stretches so the page never ends in blank space. */
+  .dashboard-main > :last-child,
+  .dashboard-side > :last-child {
+    flex: 1 0 auto;
+  }
+
+  .wallet-header h3,
+  .summary-header h3 {
+    font-size: 13.5px;
+  }
+
+  .wallet-header p,
+  .summary-header p {
+    font-size: 11px;
+  }
+
+  .wallet-info {
+    margin-top: 6px;
+  }
+
+  .wallet-item,
+  .summary-item {
+    padding: 8px 0;
+    gap: 6px;
+  }
+
+  .wallet-item span,
+  .summary-item span {
+    font-size: 11px;
+  }
+
+  .wallet-item strong,
+  .summary-item strong {
+    font-size: 12px;
+  }
+
+  .wallet-unified-disconnect {
+    margin-top: 2px;
+  }
+
+  /* ---- Escrow Progress ---- */
+  .progress-stepper {
+    gap: 8px;
+  }
+
+  .progress-stepper-header h3 {
+    font-size: 13.5px;
+  }
+
+  .progress-stepper-header p {
+    font-size: 11px;
+  }
+
+  .progress-track {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 10px;
+    column-gap: 6px;
+    padding-top: 8px;
+  }
+
+  .progress-step {
+    gap: 4px;
+  }
+
+  .progress-circle {
+    width: 30px;
+    height: 30px;
+    font-size: 10.5px;
+  }
+
+  .progress-label {
+    font-size: 9.5px;
+    line-height: 1.25;
+  }
+
+  /* ---- Create Escrow: thumb-friendly ---- */
+  .create-escrow-card {
+    gap: 10px;
+  }
+
+  .create-escrow-head {
+    gap: 8px;
+  }
+
+  .section-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    font-size: 15px;
+  }
+
+  .create-escrow-card h2 {
+    font-size: 16px;
+  }
+
+  .escrow-subtitle {
+    font-size: 12px;
+  }
+
+  .create-escrow-card input,
+  .create-escrow-card select {
+    min-height: 46px;
+    padding: 11px 13px;
+    border-radius: 10px;
+    font-size: 16px; /* ≥16px prevents iOS auto-zoom */
+  }
+
+  .action-grid {
+    grid-template-columns: 1fr;
+    gap: 9px;
+    margin-top: 12px;
+  }
+
+  .action-grid button {
+    min-height: 48px;
+    padding: 12px 15px;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  .escrow-role-badge {
+    font-size: 10.5px;
+    padding: 5px 10px;
+  }
+
+  .escrow-hint {
+    font-size: 11.5px;
+  }
+
+  /* ---- Fund From Any Chain ---- */
+  .fund-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .fund-card .premium-action-btn,
+  .fund-card .help-cta {
+    min-height: 48px;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  .fund-input {
+    font-size: 16px;
+    min-height: 46px;
+  }
+
+  /* ---- Recent Activity ---- */
+  .activity-item {
+    grid-template-columns: auto 1fr;
+    gap: 11px;
+    padding: 12px 13px;
+    border-radius: 13px;
+    background: #0e1115;
+    border: 1px solid #1d2229;
+    transition: border-color 0.15s ease;
+  }
+
+  .activity-item-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 11px;
+    font-size: 15px;
+  }
+
+  .activity-item-title-row strong {
+    font-size: 12.5px;
+  }
+
+  .activity-item-detail {
+    font-size: 11.5px;
+  }
+
+  .activity-item-meta {
+    grid-column: 2;
+    text-align: left;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .activity-item-time {
+    font-size: 11px;
+  }
+
+  .activity-item-hash {
+    font-size: 10px;
+  }
+
+  .activity-empty {
+    font-size: 12px;
+  }
+
+  /* ---- My Escrows ---- */
+  .escrow-card-compact {
+    padding: 13px 14px;
+    border-radius: 13px;
+    background: #0e1115;
+    border: 1px solid #1d2229;
+    transition: border-color 0.15s ease;
+  }
+
+  .escrow-card-compact:hover,
+  .escrow-card-compact:focus-visible {
+    border-color: rgba(20, 184, 166, 0.4);
+  }
+
+  .escrow-row-title {
+    font-size: 13px;
+  }
+
+  .escrow-card-compact-amount {
+    font-size: 12px;
+  }
+
+  .escrow-card-compact-expiry {
+    font-size: 11px;
+  }
+
+  .escrow-card-compact-party {
+    font-size: 11px;
+  }
+
+  .history-search,
+  .history-sort {
+    font-size: 15px;
+    border-radius: 10px;
+  }
+
+  /* ---- Transactions ---- */
+  .tx-item {
+    border-radius: 12px;
+  }
+
+  /* ---- Safety + Help cards ---- */
+  .safety-summary-rows {
+    gap: 0;
+  }
+
+  .quick-help-text {
+    font-size: 12px;
+  }
+
+  .help-cta {
+    min-height: 46px;
+    border-radius: 12px;
+    font-size: 13px;
+  }
+
+  /* ---- Bottom navigation (mobile only) ---- */
+  .bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 950; /* below modals (1000) and chat (9980) */
+    display: flex;
+    align-items: stretch;
+    padding: 7px 8px calc(7px + env(safe-area-inset-bottom, 0px));
+    background: rgba(8, 9, 11, 0.92);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border-top: 1px solid #1c2026;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+  }
+
+  .bottom-nav button {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 7px 2px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: #6b7280;
+    font-family: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+
+  .bottom-nav button.active {
+    color: #5eead4;
+    background: rgba(20, 184, 166, 0.08);
+  }
+
+  .bottom-nav-icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .bottom-nav-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+
+  .bottom-nav button.active .bottom-nav-label {
+    color: #5eead4;
+  }
+
+  /* ---- Floating chat sits above the bottom nav ---- */
+  .chat-fab {
+    bottom: calc(12px + 62px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .chat-panel {
+    bottom: calc(62px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* ---- Status badges: compact, teal-tinted ---- */
+  .status-badge,
+  .wallet-badge {
+    font-size: 10.5px;
+    padding: 4px 9px;
+    border-radius: 999px;
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    box-shadow: none;
+  }
+
+  /* ---- Section anchors respect the fixed bars ---- */
+  #dashboard,
+  #create-escrow,
+  #my-escrows,
+  #transactions,
+  #activity,
+  #analytics {
+    scroll-margin-top: 64px;
+  }
+
+  /* ---- Mobile page headers (Wallet / Escrows / Activity / Txn) ----
+     Desktop keeps its own centered header; on mobile each page gets a
+     compact left-aligned kicker + title. */
+  .dashboard-header .theme-badge {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    padding: 4px 11px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #5eead4;
+    background: rgba(20, 184, 166, 0.1);
+    border: 1px solid rgba(20, 184, 166, 0.26);
+    box-shadow: 0 0 14px rgba(20, 184, 166, 0.08);
+  }
+
+  /* ---- Modals: compact, above the bottom nav ---- */
+  .settings-modal {
+    padding: 18px 16px;
+    border-radius: 18px;
+  }
+
+  .settings-modal-head h3 {
+    font-size: 15px;
+  }
+
+  .escrow-modal {
+    padding: 16px 14px;
+    border-radius: 16px;
+    max-height: min(84vh, 640px);
+  }
+
+  .escrow-modal-head strong {
+    font-size: 14px;
+  }
+
+  /* ---- Help / Why Arc / Safety / Analytics pages: room for the
+     fixed bottom nav so the last card is never hidden ---- */
+  .help-center,
+  .why-arc,
+  .safety-center,
+  .dashboard:has(> .analytics-page-header) {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* ---- Landing page: no bottom nav, keep it clean ---- */
+  .landing .landing-inner {
+    padding-bottom: 32px;
+  }
+}

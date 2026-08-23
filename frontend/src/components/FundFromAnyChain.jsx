@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BrowserProvider, Contract, JsonRpcProvider, formatUnits, parseUnits } from "ethers";
+import { BrowserProvider, Contract, FallbackProvider, JsonRpcProvider, formatUnits, parseUnits } from "ethers";
 import escrowArtifact from "../contracts/ArcBridgeEscrow.json";
 import { arcTestnet } from "../contracts/arcChain";
 import { CONTRACT_ADDRESS } from "../contracts/config";
@@ -54,12 +54,14 @@ const SOURCE_CHAINS = [
     chainIdHex: "0x14a34",
     label: "Base Sepolia",
     icon: "🟦",
-    rpc: "https://sepolia.base.org",
-    // Fallback public RPCs — the primary one (sepolia.base.org) rate-limits
-    // bursts, and the Bridge Kit pre-flight reads can hit 429/timeout.
+    // Primary RPC order matters: sepolia.base.org returns "missing revert
+    // data" on allowance/balanceOf eth_call simulations (broken for reads),
+    // which failed the Bridge Kit pre-flight. publicnode + drpc serve reads
+    // reliably — they go first, sepolia.base.org stays as a last resort.
+    rpc: "https://base-sepolia-rpc.publicnode.com",
     rpcFallbacks: [
-      "https://base-sepolia-rpc.publicnode.com",
       "https://base-sepolia.drpc.org",
+      "https://sepolia.base.org",
     ],
     explorer: "https://sepolia.basescan.org",
     native: { symbol: "ETH", name: "Ethereum", decimals: 18 },
@@ -72,9 +74,9 @@ const SOURCE_CHAINS = [
     chainIdHex: "0xaa36a7",
     label: "Ethereum Sepolia",
     icon: "⛓️",
-    rpc: "https://rpc.sepolia.org",
+    rpc: "https://ethereum-sepolia-rpc.publicnode.com",
     rpcFallbacks: [
-      "https://ethereum-sepolia-rpc.publicnode.com",
+      "https://rpc.sepolia.org",
     ],
     explorer: "https://sepolia.etherscan.io",
     native: { symbol: "ETH", name: "Ethereum", decimals: 18 },
@@ -373,17 +375,34 @@ function FundFromAnyChain({ escrowId = "", onBlockchainUpdate = () => {} }) {
       const adapter = await createEthersAdapterFromProvider({
         provider: walletProvider,
         getProvider: ({ chain }) => {
-          const rpcUrls = chain?.rpcEndpoints?.length
-            ? [...chain.rpcEndpoints]
-            : chain?.rpcUrls?.default?.http ?? [];
-          const url = rpcUrls[0];
-          if (!url) return null;
+          // Build a read-only multi-RPC provider for the adapter's pre-flight
+          // checks (balanceOf / allowance / estimates). The default public
+          // testnet RPCs (e.g. sepolia.base.org) return "missing revert data"
+          // on eth_call simulations, which fails the approve/burn pre-flight.
+          // So we use OUR configured RPC order for the source chain (reliable
+          // endpoints first), wrap every endpoint in the retry provider, and
+          // combine them with a FallbackProvider at quorum 1 (first successful
+          // answer wins). One flaky RPC can no longer fail the whole bridge.
           const chainId = Number(chain.chainId);
+          const configured =
+            chainId === sourceChain.chainId
+              ? [sourceChain.rpc, ...sourceChain.rpcFallbacks]
+              : null;
+          const rpcUrls =
+            configured ??
+            (chain?.rpcEndpoints?.length
+              ? [...chain.rpcEndpoints]
+              : chain?.rpcUrls?.default?.http ?? []);
+          if (!rpcUrls.length) return null;
+
           const opts = { staticNetwork: true, pollingInterval: 4000 };
-          // RetryJsonRpcProvider retries transient 429/timeout/network failures
-          // (see class above) — a plain JsonRpcProvider fails hard on those and
-          // surfaces as "Network connection failed for Arc Testnet" mid-bridge.
-          return new RetryJsonRpcProvider(url, chainId, opts);
+          const retryProviders = rpcUrls.map(
+            (url) => new RetryJsonRpcProvider(url, chainId, opts),
+          );
+          if (retryProviders.length === 1) return retryProviders[0];
+          // quorum 1: return the first successful result instead of waiting
+          // for a majority — ideal for read-only pre-flight calls.
+          return new FallbackProvider(retryProviders, chainId, { quorum: 1 });
         },
       });
       const kit = new BridgeKit();
