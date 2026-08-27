@@ -11,35 +11,24 @@
     <meta name="theme-color" content="#0a0b0d" />
     <title>Client2Freelancer — Secure USDC Escrow Platform</title>
     <script>
-      // On mobile browsers, "Desktop site" / "Request Desktop Website" mode
-      // usually widens the layout viewport — but on some phones it does not
-      // (iOS Safari and narrow Android Chrome keep width=device-width), so
-      // the mobile CSS + hamburger drawer stays active and the desktop UI
-      // never shows. Detect that case and force a 1920px desktop layout
-      // viewport so the real desktop layout (sidebar, no hamburger) renders.
-      // Normal mobile and real desktop are never touched.
+      // Detect a REAL touch phone independently of the layout viewport width.
+      // Chrome/Safari "Desktop site" mode widens the viewport to ~980px (so
+      // max-width breakpoints stop matching), but it does NOT change
+      // navigator.maxTouchPoints or window.screen.width. Flag such phones on
+      // <html> so the React nav + mobile CSS keep the mobile UI. Real
+      // desktop/laptop never matches (no coarse touch and/or a wide screen),
+      // so its layout is completely untouched.
       (function () {
         try {
-          // A phone: touch capable + CSS screen width (physical / DPR) <= 600.
-          var dpr = window.devicePixelRatio || 1;
-          var cssScreen = window.screen ? window.screen.width / dpr : 0;
-          var touchPhone =
-            (navigator.maxTouchPoints || 0) > 0 &&
-            cssScreen > 0 &&
-            cssScreen <= 600;
-          if (!touchPhone) return;
-
-          // Desktop mode on the phone: the layout viewport is already wide
-          // (Android Chrome: ~980px+) OR the UA claims a desktop OS.
-          var ua = navigator.userAgent;
-          var desktopUA =
-            /Macintosh|Windows NT|X11|Linux/.test(ua) &&
-            !/Mobile|Android|iPhone|iPad|iPod/.test(ua);
-          var alreadyWide = window.innerWidth > 700;
-          if (!desktopUA && !alreadyWide) return;
-
-          var vp = document.querySelector('meta[name="viewport"]');
-          if (vp) vp.setAttribute("content", "width=1920, initial-scale=1");
+          var touch =
+            (navigator.maxTouchPoints || 0) > 0 || "ontouchstart" in window;
+          var screenW = window.screen ? window.screen.width : 0;
+          var mobileUA = /Android|iPhone|iPad|iPod|IEMobile|Opera Mini|Mobile/i.test(
+            navigator.userAgent || "",
+          );
+          if (touch && (screenW <= 600 || mobileUA)) {
+            document.documentElement.classList.add("is-mobile-device");
+          }
         } catch (e) {
           /* never block first paint */
         }

@@ -30,8 +30,8 @@ export default class ErrorBoundary extends Component {
             minHeight: "100vh",
             display: "grid",
             placeItems: "center",
-            background: "#0b0f1a",
-            color: "#e2e8f0",
+            background: "var(--eb-bg, #0b0f1a)",
+            color: "var(--eb-text, #e2e8f0)",
             fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
             padding: "24px",
           }}
@@ -40,8 +40,8 @@ export default class ErrorBoundary extends Component {
             style={{
               maxWidth: "520px",
               textAlign: "center",
-              background: "#131a2b",
-              border: "1px solid #1e2126",
+              background: "var(--eb-card, #131a2b)",
+              border: "1px solid var(--eb-border, #1e2126)",
               borderRadius: "14px",
               padding: "32px 28px",
             }}
@@ -52,7 +52,7 @@ export default class ErrorBoundary extends Component {
             <h1 style={{ fontSize: "20px", margin: "16px 0 8px" }}>Something went wrong</h1>
             <p
               style={{
-                color: "#94a3b8",
+                color: "var(--eb-sub, #94a3b8)",
                 fontSize: "14px",
                 lineHeight: 1.5,
                 margin: "0 0 8px",
@@ -69,7 +69,7 @@ export default class ErrorBoundary extends Component {
                 padding: "10px 20px",
                 border: "none",
                 borderRadius: "10px",
-                background: "#5e6ad2",
+                background: "var(--eb-btn, #5e6ad2)",
                 color: "#fff",
                 fontSize: "14px",
                 fontWeight: 600,

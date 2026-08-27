@@ -25,6 +25,8 @@ const EXPIRY_OPTIONS = [
 ];
 
 function Settings({
+  theme,
+  setTheme,
   accent,
   setAccent,
   refreshMs,
@@ -62,6 +64,36 @@ function Settings({
         <div>
           <h3>⚙️ Settings</h3>
           <p>Appearance, data refresh, and network info</p>
+        </div>
+      </div>
+
+      <div className="settings-group">
+        <h4>Appearance — Theme</h4>
+        <p className="settings-hint">
+          Switch between the futuristic dark theme and the Soft Light Silver Aurora
+          glassmorphism theme. Applied instantly and saved to this browser.
+        </p>
+        <div className="accent-swatches">
+          <button
+            type="button"
+            className={`accent-swatch ${theme === "dark" ? "accent-swatch--active" : ""}`}
+            onClick={() => setTheme("dark")}
+            aria-label="Set theme to Dark"
+            aria-pressed={theme === "dark"}
+          >
+            <span className="accent-swatch-dot" style={{ "--swatch": "#0f172a" }} />
+            Dark
+          </button>
+          <button
+            type="button"
+            className={`accent-swatch ${theme === "aurora" ? "accent-swatch--active" : ""}`}
+            onClick={() => setTheme("aurora")}
+            aria-label="Set theme to Soft Light Silver Aurora"
+            aria-pressed={theme === "aurora"}
+          >
+            <span className="accent-swatch-dot" style={{ "--swatch": "#c0c8d8" }} />
+            Silver Aurora
+          </button>
         </div>
       </div>
 

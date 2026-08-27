@@ -1682,6 +1682,13 @@ select:focus {
   border-bottom: 1px solid #1c1f24;
 }
 
+.top-navbar .brand-image {
+  width: auto;
+  height: 30px;
+  object-fit: contain;
+  opacity: 0.92;
+}
+
 .brand-image {
   width: 30px;
   height: 30px;

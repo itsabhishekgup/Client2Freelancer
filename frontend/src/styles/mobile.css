@@ -50,13 +50,24 @@
     gap: 7px;
   }
 
+  .top-navbar .brand-image {
+    width: auto;
+    height: 22px;
+    object-fit: contain;
+  }
+
   .brand-image {
     width: 24px;
     height: 24px;
   }
 
   .brand-copy h2 {
-    font-size: 13px;
+    font-size: 13.5px;
+  }
+
+  /* Mobile: hide the "Escrow" suffix — logo + name fit cleanly on one line */
+  .brand-suffix {
+    display: none;
   }
 
   .network-badge {

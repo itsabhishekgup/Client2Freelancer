@@ -70,11 +70,18 @@ function Dashboard(props) {
   const [txVisibleCount, setTxVisibleCount] = useState(3);
   const [selectedEscrow, setSelectedEscrow] = useState(null);
   const [isMobile, setIsMobile] = useState(
-    () => typeof window !== "undefined" && window.innerWidth <= 768,
+    () =>
+      typeof window !== "undefined" &&
+      (document.documentElement.classList.contains("is-mobile-device") ||
+        window.innerWidth <= 768),
   );
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    const handleResize = () =>
+      setIsMobile(
+        document.documentElement.classList.contains("is-mobile-device") ||
+          window.innerWidth <= 768,
+      );
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -603,10 +610,12 @@ function Dashboard(props) {
   const displayedSummary = summaryEscrow ?? recentEscrows[0] ?? null;
   const terminalLabel = getWorkflowTerminalLabel(displayedSummary);
   const terminalMeta = getWorkflowTerminalMeta(displayedSummary);
-  // Terminal states (refunded/cancelled, disputed) are not on the forward
-  // path — clamp the step display so the stepper doesn't misrepresent them.
-  const isTerminal = Boolean(terminalLabel);
-  const displayedStep = isTerminal
+  // No escrow ID entered yet → keep the stepper at zero instead of showing
+  // the most recent escrow's progress. Once an ID is entered (or created),
+  // the stepper reflects that escrow's on-chain progress.
+  const noEscrowSelected = !resolvedEscrowId;
+  const isTerminal = noEscrowSelected ? false : Boolean(terminalLabel);
+  const displayedStep = noEscrowSelected || isTerminal
     ? 0
     : Math.min(Math.max(liveStep, 0), STEPS.length);
 
@@ -790,8 +799,8 @@ function Dashboard(props) {
                       gap: "10px",
                       padding: "9px 12px",
                       borderRadius: "10px",
-                      background: "rgba(15,20,40,0.5)",
-                      border: "1px solid #1e2126",
+                      background: "var(--tx-item-bg, rgba(15,20,40,0.5))",
+                      border: "1px solid var(--tx-item-border, #1e2126)",
                     }}
                   >
                     <span

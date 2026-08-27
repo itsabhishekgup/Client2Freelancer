@@ -11,15 +11,29 @@ const NAV_ITEMS = [
   { id: "settings", icon: "⚙️", label: "Settings" },
 ];
 
+// Mobile is chosen by EITHER a narrow layout viewport OR a real touch phone.
+// "is-mobile-device" is set by index.html before first paint when
+// navigator.maxTouchPoints + a small window.screen.width (or mobile UA) mark a
+// genuine phone — this keeps the mobile drawer in Chrome/Safari "Desktop site"
+// mode, where the viewport is widened to ~980px so max-width alone is wrong.
+// Real desktop never gets the class, so its layout is untouched.
+const isMobileViewport = () => {
+  if (typeof window === "undefined") return false;
+  if (document.documentElement.classList.contains("is-mobile-device")) {
+    return true;
+  }
+  return typeof window.matchMedia === "function"
+    ? window.matchMedia("(max-width: 768px)").matches
+    : window.innerWidth <= 768;
+};
+
 function Sidebar({ activeSection = "dashboard", onNavigate }) {
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth <= 768 : false
-  );
+  const [isMobile, setIsMobile] = useState(isMobileViewport);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
+      setIsMobile(isMobileViewport());
     };
 
     handleResize();

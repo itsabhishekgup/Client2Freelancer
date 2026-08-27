@@ -3,7 +3,9 @@ import "./styles/globals.css";
 import "./styles/dashboard.css";
 import "./styles/dark-theme.css";
 import "./styles/safety-center.css";
+import "./styles/aurora-theme.css"; // Soft Light Silver Aurora Glassmorphism theme (opt-in via Settings)
 import "./styles/mobile.css"; // mobile-only (≤768px) premium layout — desktop untouched
+import "./styles/touch-mobile.css"; // touch-phone "Desktop site" fallback — desktop untouched
 
 import Landing from "./components/Landing";
 import Navbar from "./components/Navbar";
@@ -23,6 +25,9 @@ function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [escrowId, setEscrowId] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("arcbridge-theme") || "dark",
+  );
   const [accent, setAccent] = useState(
     () => localStorage.getItem("arcbridge-accent") || "blue",
   );
@@ -38,6 +43,11 @@ function App() {
   const [showActivityFeed, setShowActivityFeed] = useState(
     () => localStorage.getItem("arcbridge-show-feed") !== "0",
   );
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("arcbridge-theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     document.documentElement.dataset.accent = accent;
@@ -84,6 +94,8 @@ function App() {
   const isSafetyPage = view === "app" && activeSection === "safety-center";
 
   const settingsProps = {
+    theme,
+    setTheme,
     accent,
     setAccent,
     refreshMs,
