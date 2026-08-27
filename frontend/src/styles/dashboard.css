@@ -234,24 +234,94 @@
 .sidebar-footnote {
   margin-top: 24px;
   padding: 16px;
-  border-radius: 18px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   background: linear-gradient(
     180deg,
-    rgba(219, 234, 254, 0.72),
-    rgba(255, 255, 255, 0.54)
+    rgba(219, 234, 254, 0.62),
+    rgba(255, 255, 255, 0.48)
   );
   border: 1px solid rgba(147, 197, 253, 0.22);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
 }
 
-.sidebar-footnote p {
-  margin: 0 0 4px;
+.footnote-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.footnote-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+}
+
+.footnote-powered {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.footnote-divider {
+  height: 1px;
+  background: rgba(148, 163, 184, 0.22);
+}
+
+.footnote-creator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(255, 255, 255, 0.5);
+  color: #475569;
   font-size: 12px;
-  color: #64748b;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 }
 
-.sidebar-footnote strong {
-  font-size: 14px;
-  color: #0f172a;
+.footnote-creator:hover {
+  background: rgba(255, 255, 255, 0.86);
+  border-color: rgba(37, 99, 235, 0.38);
+  color: #1d4ed8;
+}
+
+.footnote-x-logo {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
+.footnote-creator-handle {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footnote-external {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  opacity: 0.65;
 }
 
 .dashboard {

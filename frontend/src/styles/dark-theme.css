@@ -1695,6 +1695,13 @@ select:focus {
   opacity: 0.92;
 }
 
+/* Dark theme only: the Arc logo raster is deep navy, which disappears against
+   the near-black navbar. Brighten it without touching the light/silver theme. */
+:root:not([data-theme="aurora"]) .brand-image {
+  opacity: 0.95;
+  filter: brightness(1.55) saturate(1.08) drop-shadow(0 2px 12px rgba(94, 106, 210, 0.45));
+}
+
 .brand-image--sidebar {
   width: 28px;
   height: 28px;
@@ -1802,10 +1809,42 @@ select:focus {
 }
 
 .sidebar-footnote {
-  border-radius: 8px;
+  border-radius: 12px;
   background: #0d0e10;
   border: 1px solid #1c1f24;
-  padding: 14px;
+  padding: 15px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
+}
+
+.sidebar-footnote .footnote-badge {
+  background: rgba(94, 106, 210, 0.14);
+  border: 1px solid rgba(94, 106, 210, 0.28);
+  color: #a5b0f0;
+}
+
+.sidebar-footnote .footnote-badge-dot {
+  background: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.16);
+}
+
+.sidebar-footnote .footnote-powered {
+  color: #d1d5db;
+}
+
+.sidebar-footnote .footnote-divider {
+  background: #1c1f24;
+}
+
+.sidebar-footnote .footnote-creator {
+  border: 1px solid #26292f;
+  background: #121418;
+  color: #9aa1ab;
+}
+
+.sidebar-footnote .footnote-creator:hover {
+  background: #171a1f;
+  border-color: #3a3f47;
+  color: #d1d5db;
 }
 
 /* ---- Flat cards ---- */

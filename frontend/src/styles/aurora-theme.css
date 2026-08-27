@@ -188,13 +188,17 @@
 
 [data-theme="aurora"] .brand-copy h2,
 [data-theme="aurora"] .logo h2 {
-  color: #33394d;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+  color: var(--aurora-heading);
+  text-shadow: none;
 }
 
 [data-theme="aurora"] .brand-copy p,
 [data-theme="aurora"] .logo p {
-  color: var(--text-secondary);
+  color: var(--aurora-text);
+}
+
+[data-theme="aurora"] .brand-image {
+  opacity: 1;
 }
 
 [data-theme="aurora"] .network-badge {
@@ -269,9 +273,41 @@
 }
 
 [data-theme="aurora"] .sidebar-footnote {
-  background: var(--aurora-surface-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.44));
   border: 1px solid var(--aurora-border);
+  box-shadow: 0 12px 32px rgba(120, 134, 160, 0.14);
   color: var(--text-muted);
+}
+
+[data-theme="aurora"] .sidebar-footnote .footnote-badge {
+  background: rgba(74, 108, 247, 0.12);
+  border: 1px solid rgba(74, 108, 247, 0.28);
+  color: #3b56d8;
+}
+
+[data-theme="aurora"] .sidebar-footnote .footnote-badge-dot {
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.16);
+}
+
+[data-theme="aurora"] .sidebar-footnote .footnote-powered {
+  color: var(--aurora-heading);
+}
+
+[data-theme="aurora"] .sidebar-footnote .footnote-divider {
+  background: var(--aurora-border);
+}
+
+[data-theme="aurora"] .sidebar-footnote .footnote-creator {
+  border: 1px solid var(--aurora-border-strong);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--aurora-text);
+}
+
+[data-theme="aurora"] .sidebar-footnote .footnote-creator:hover {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: var(--acc-border);
+  color: var(--acc-text);
 }
 
 [data-theme="aurora"] .logo {
@@ -1830,6 +1866,41 @@
   [data-theme="aurora"] .progress-stepper {
     animation-duration: 0.4s;
   }
+}
+
+/* Touch-phone "Desktop site" fallback: touch-mobile.css re-applies the black
+   bottom nav via html.is-mobile-device (higher specificity, loaded last). Re-assert
+   the silver surface for the aurora theme so it never stays black on real phones,
+   while the dark theme's bottom nav remains unchanged. */
+html.is-mobile-device[data-theme="aurora"] .bottom-nav {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  border-top: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 -6px 24px rgba(120, 134, 160, 0.16);
+}
+
+html.is-mobile-device[data-theme="aurora"] .bottom-nav button {
+  color: var(--text-muted);
+}
+
+html.is-mobile-device[data-theme="aurora"] .bottom-nav button.active {
+  color: var(--acc-text);
+}
+
+html.is-mobile-device[data-theme="aurora"] .bottom-nav button.active .bottom-nav-label {
+  color: var(--acc-text);
+}
+
+/* Same touch-phone fallback fix for the top navbar: touch-mobile.css re-applies
+   a near-black surface via html.is-mobile-device (higher specificity, loaded
+   last). Re-assert the silver frosted surface for the aurora theme only. */
+html.is-mobile-device[data-theme="aurora"] .top-navbar {
+  background: rgba(255, 255, 255, 0.66);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 6px 24px rgba(120, 134, 160, 0.18);
 }
 
 /* ============================================================

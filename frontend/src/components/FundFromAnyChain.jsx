@@ -612,7 +612,7 @@ function FundFromAnyChain({ escrowId = "", onBlockchainUpdate = () => {} }) {
               <p>
                 Need USDC + {sourceChain.native.symbol} on {sourceChain.label}? Get testnet funds
                 from the{" "}
-                <a href={sourceChain.faucet} target="_blank" rel="noopener noreferrer">
+                <a href="https://faucet.circle.com/" target="_blank" rel="noopener noreferrer">
                   faucet ↗
                 </a>
               </p>

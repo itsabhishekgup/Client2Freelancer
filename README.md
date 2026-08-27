@@ -450,7 +450,7 @@ After a redeploy, update `CONTRACT_ADDRESS` in `backend/.env` and `frontend/src/
 
 ## Screenshots
 
-> Add screenshots here. Suggested captures:
+> Adding Soon...
 
 <!--
 ![Landing](docs/screenshots/landing.png)

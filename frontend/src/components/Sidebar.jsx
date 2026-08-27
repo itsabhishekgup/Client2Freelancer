@@ -173,8 +173,37 @@ function Sidebar({ activeSection = "dashboard", onNavigate }) {
             </button>
 
             <div className="sidebar-footnote mobile-sidebar-footnote">
-              <p>Arc Testnet</p>
-              <strong>Powered by Circle</strong>
+              <span className="footnote-badge">
+                <span className="footnote-badge-dot" aria-hidden="true" />
+                Arc Testnet
+              </span>
+              <p className="footnote-powered">Powered by Circle</p>
+              <span className="footnote-divider" aria-hidden="true" />
+              <a
+                className="footnote-creator"
+                href="https://x.com/itsabhishekgup"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Creator @itsabhishekgup on X"
+              >
+                <svg className="footnote-x-logo" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.66l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.451-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117l11.966 15.644Z"
+                    fill="currentColor"
+                  />
+                </svg>
+                <span className="footnote-creator-handle">@itsabhishekgup</span>
+                <svg className="footnote-external" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M14 4h6v6M20 4l-9 9M10 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </a>
             </div>
           </div>
         </aside>
@@ -218,8 +247,37 @@ function Sidebar({ activeSection = "dashboard", onNavigate }) {
       </div>
 
       <div className="sidebar-footnote">
-        <p>Arc Testnet</p>
-        <strong>Powered by Circle</strong>
+        <span className="footnote-badge">
+          <span className="footnote-badge-dot" aria-hidden="true" />
+          Arc Testnet
+        </span>
+        <p className="footnote-powered">Powered by Circle</p>
+        <span className="footnote-divider" aria-hidden="true" />
+        <a
+          className="footnote-creator"
+          href="https://x.com/itsabhishekgup"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Creator @itsabhishekgup on X"
+        >
+          <svg className="footnote-x-logo" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24h-6.66l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231 5.451-6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117l11.966 15.644Z"
+              fill="currentColor"
+            />
+          </svg>
+          <span className="footnote-creator-handle">@itsabhishekgup</span>
+          <svg className="footnote-external" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M14 4h6v6M20 4l-9 9M10 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </a>
       </div>
     </aside>
   );

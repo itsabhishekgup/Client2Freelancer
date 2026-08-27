@@ -128,8 +128,6 @@ function Navbar({ onNavigate }) {
             <p>Secure Payments on Arc</p>
           </div>
         </div>
-
-        <span className="network-badge">Arc Testnet</span>
       </div>
 
       <div className="nav-right">
