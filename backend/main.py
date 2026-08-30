@@ -856,7 +856,7 @@ def health() -> Dict[str, Any]:
     }
 
 
-@app.get("/live")
+@app.get("/api/live")
 def live(address: str = Query(default=""), escrow_id: str = Query(default="")) -> Dict[str, Any]:
     # Cold start: answer instantly and let the background poller fill the data
     # within a poll cycle instead of blocking this request for tens of seconds.
