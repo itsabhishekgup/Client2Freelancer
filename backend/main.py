@@ -844,7 +844,7 @@ async def poll_chain() -> None:
         await asyncio.sleep(backoff)
 
 
-@app.get("/health")
+@app.get("/api/health")
 def health() -> Dict[str, Any]:
     return {
         "ok": state.healthy,
