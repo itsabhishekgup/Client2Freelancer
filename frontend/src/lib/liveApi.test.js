@@ -8,7 +8,7 @@ import {
   getApiBase,
 } from "./liveApi";
 
-const API_BASE = (import.meta.env.VITE_BACKEND_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_BACKEND_URL || "/api").replace(/\/$/, "");
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -91,7 +91,7 @@ describe("chatWithAssistant", () => {
     const result = await chatWithAssistant("how do I create", [{ role: "user", content: "hi" }]);
     expect(result.answer).toBe("hi");
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe(`${API_BASE}/api/chat`);
+    expect(url).toBe(`${API_BASE}/chat`);
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body)).toEqual({
       message: "how do I create",

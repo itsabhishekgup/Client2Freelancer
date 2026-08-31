@@ -61,7 +61,7 @@ def test_health_returns_fields(client, monkeypatch):
     monkeypatch.setattr(main, "state", SimpleNamespace(
         healthy=True, latest_block=100, last_scanned_block=50, error=""
     ))
-    r = client.get("/health")
+    r = client.get("/api/health")
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True
@@ -76,7 +76,7 @@ def test_escrow_detail_found(client, monkeypatch):
         escrows={1: make_raw(1, funded=True, amount=2_000_000)},
     )
     monkeypatch.setattr(main, "contract", fake)
-    r = client.get("/escrow/1")
+    r = client.get("/api/escrow/1")
     assert r.status_code == 200
     body = r.json()
     assert body["id"] == "1"
@@ -86,7 +86,7 @@ def test_escrow_detail_found(client, monkeypatch):
 
 def test_escrow_detail_not_found(client, monkeypatch):
     monkeypatch.setattr(main, "contract", FakeContract(escrows={}))
-    r = client.get("/escrow/99")
+    r = client.get("/api/escrow/99")
     assert r.status_code == 404
     assert r.json() == {"detail": "Escrow not found"}
 
@@ -97,7 +97,7 @@ def test_escrow_detail_zero_address_placeholder_is_not_found(client, monkeypatch
     zero = "0x" + "0" * 40
     fake = FakeContract(escrows={99: make_raw(99, client=zero)})
     monkeypatch.setattr(main, "contract", fake)
-    r = client.get("/escrow/99")
+    r = client.get("/api/escrow/99")
     assert r.status_code == 404
 
 
@@ -111,7 +111,7 @@ def test_live_invalid_address_returns_graceful_response(client, monkeypatch):
         balanceOf=lambda a: SimpleNamespace(call=lambda: 0),
         allowance=lambda a, s: SimpleNamespace(call=lambda: 0),
     )))
-    r = client.get("/live", params={"address": "not-an-address"})
+    r = client.get("/api/live", params={"address": "not-an-address"})
     assert r.status_code == 200
     body = r.json()
     assert body["wallet"]["connected"] is False
@@ -132,7 +132,7 @@ def test_escrows_list_pagination_and_filters(client, monkeypatch):
     monkeypatch.setattr(main, "contract", FakeContract(escrow_count=3, escrows=escrows))
     monkeypatch.setattr(main, "_escrows_cache", {"timestamp": 0.0, "escrows": [], "total": 0, "complete": False})
 
-    r = client.get("/escrows")
+    r = client.get("/api/escrows")
     assert r.status_code == 200
     body = r.json()
     assert body["total_escrows"] == 3
@@ -142,43 +142,43 @@ def test_escrows_list_pagination_and_filters(client, monkeypatch):
     assert ids == ["3", "2", "1"]
 
     # status filter
-    r = client.get("/escrows", params={"status": "refunded"})
+    r = client.get("/api/escrows", params={"status": "refunded"})
     assert [e["id"] for e in r.json()["escrows"]] == ["3"]
 
     # status filter case-insensitive
-    r = client.get("/escrows", params={"status": "REFUNDED"})
+    r = client.get("/api/escrows", params={"status": "REFUNDED"})
     assert [e["id"] for e in r.json()["escrows"]] == ["3"]
 
     # search by client address
-    r = client.get("/escrows", params={"search": "1111"})
+    r = client.get("/api/escrows", params={"search": "1111"})
     assert len(r.json()["escrows"]) == 3
 
     # search by id
-    r = client.get("/escrows", params={"search": "2"})
+    r = client.get("/api/escrows", params={"search": "2"})
     ids = [e["id"] for e in r.json()["escrows"]]
     assert "2" in ids and "1" not in ids
 
     # pagination: limit 2
-    r = client.get("/escrows", params={"limit": 2})
+    r = client.get("/api/escrows", params={"limit": 2})
     body = r.json()
     assert len(body["escrows"]) == 2
     assert body["total"] == 3
 
     # pagination: offset
-    r = client.get("/escrows", params={"offset": 2})
+    r = client.get("/api/escrows", params={"offset": 2})
     assert [e["id"] for e in r.json()["escrows"]] == ["1"]
 
     # limit+offset combined
-    r = client.get("/escrows", params={"limit": 1, "offset": 1})
+    r = client.get("/api/escrows", params={"limit": 1, "offset": 1})
     assert [e["id"] for e in r.json()["escrows"]] == ["2"]
 
 
 def test_escrows_list_invalid_params(client):
-    r = client.get("/escrows", params={"limit": 0})
+    r = client.get("/api/escrows", params={"limit": 0})
     assert r.status_code == 422
-    r = client.get("/escrows", params={"limit": 501})
+    r = client.get("/api/escrows", params={"limit": 501})
     assert r.status_code == 422
-    r = client.get("/escrows", params={"offset": -1})
+    r = client.get("/api/escrows", params={"offset": -1})
     assert r.status_code == 422
 
 
@@ -192,7 +192,7 @@ def test_live_cold_start_empty(client, monkeypatch):
         balanceOf=lambda a: SimpleNamespace(call=lambda: 0),
         allowance=lambda a, s: SimpleNamespace(call=lambda: 0),
     )))
-    r = client.get("/live")
+    r = client.get("/api/live")
     assert r.status_code == 200
     body = r.json()
     assert body["stats"]["total_escrows"] == 0
@@ -208,7 +208,7 @@ def test_live_with_wallet(client, monkeypatch):
         balanceOf=lambda a: SimpleNamespace(call=lambda: 10_000_000),
         allowance=lambda a, s: SimpleNamespace(call=lambda: 5_000_000),
     )))
-    r = client.get("/live", params={"address": "0x1111111111111111111111111111111111111111"})
+    r = client.get("/api/live", params={"address": "0x1111111111111111111111111111111111111111"})
     assert r.status_code == 200
     body = r.json()
     assert body["wallet"]["connected"] is True
@@ -245,7 +245,7 @@ def test_safety_reports_real_contract_facts(client, monkeypatch):
     ))
     _reset_safety_cache(monkeypatch)
 
-    r = client.get("/safety")
+    r = client.get("/api/safety")
     assert r.status_code == 200
     body = r.json()
 
@@ -280,7 +280,7 @@ def test_safety_no_recoverable_when_balance_equals_locked(client, monkeypatch):
     ))
     _reset_safety_cache(monkeypatch)
 
-    r = client.get("/safety")
+    r = client.get("/api/safety")
     body = r.json()
     assert body["contract"]["recoverable"] == "0.00 USDC"
     assert body["checks"]["escrow_isolation"] is True
@@ -321,7 +321,7 @@ def test_safety_unverifiable_reads_reported_not_invented(client, monkeypatch):
     ))
     _reset_safety_cache(monkeypatch)
 
-    r = client.get("/safety")
+    r = client.get("/api/safety")
     assert r.status_code == 200
     c = r.json()["contract"]
     assert c["owner"] is None

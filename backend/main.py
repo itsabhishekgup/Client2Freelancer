@@ -897,7 +897,7 @@ def live(address: str = Query(default=""), escrow_id: str = Query(default="")) -
     }
 
 
-@app.get("/escrow/{escrow_id}")
+@app.get("/api/escrow/{escrow_id}")
 def escrow_detail(escrow_id: int) -> Dict[str, Any]:
     # _fetch_escrow treats the contract's zero-address placeholder for
     # nonexistent IDs as not-found, so callers never get a fake "Waiting"
@@ -908,7 +908,7 @@ def escrow_detail(escrow_id: int) -> Dict[str, Any]:
     return data
 
 
-@app.get("/escrows")
+@app.get("/api/escrows")
 def escrows_list(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -1045,7 +1045,7 @@ class ChatRequest(BaseModel):
     history: Optional[List[ChatMessage]] = []
 
 
-@app.get("/safety")
+@app.get("/api/safety")
 def safety() -> Dict[str, Any]:
     """Real contract safety facts for the Safety Center page and the compact
     dashboard card. No invented results: unverifiable values are None."""
