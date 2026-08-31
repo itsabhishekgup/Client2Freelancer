@@ -82,7 +82,7 @@ export async function fetchSafety(options = {}) {
   return requestJSON("/safety", options);
 }
 
-export async function chatWithAssistant(message, history = []) {
+export async function chatWithAssistant(message, history = [], wallet = "") {
   const controller = new AbortController();
 
   const timeoutId = setTimeout(function () {
@@ -99,6 +99,7 @@ export async function chatWithAssistant(message, history = []) {
       body: JSON.stringify({
         message: message,
         history: history,
+        wallet: wallet || "",
       }),
       signal: controller.signal,
     });

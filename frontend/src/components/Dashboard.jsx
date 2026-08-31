@@ -127,9 +127,18 @@ function Dashboard(props) {
   }, [resolvedEscrowId, recentEscrows]);
 
   const liveStep = useMemo(() => {
-    const blockchainStep = getWorkflowStep(summaryEscrow);
-    return Math.max(resolvedStep, blockchainStep);
-  }, [resolvedStep, summaryEscrow]);
+    // The stepper must reflect the selected escrow's on-chain state, not the
+    // global optimistic step — that value leaks from a previously-viewed
+    // escrow (e.g. after releasing escrow A, escrow B's stepper showed
+    // "Approve Work" done). Prefer the fresh recentEscrows snapshot (refreshed
+    // on every poll) over summaryEscrow (loaded once per selected id), and
+    // only use the optimistic step while on-chain data is still loading.
+    const fresh =
+      recentEscrows.find((e) => Number(e.id) === Number(selectedSummaryId)) ??
+      summaryEscrow;
+    const blockchainStep = getWorkflowStep(fresh);
+    return fresh ? blockchainStep : Math.max(resolvedStep, blockchainStep);
+  }, [recentEscrows, selectedSummaryId, summaryEscrow, resolvedStep]);
 
   const handleSetCurrentStep = (step) => {
     setInternalStep(step);

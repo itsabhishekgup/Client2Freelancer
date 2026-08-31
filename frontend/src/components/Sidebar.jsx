@@ -192,7 +192,7 @@ function Sidebar({ activeSection = "dashboard", onNavigate }) {
                     fill="currentColor"
                   />
                 </svg>
-                <span className="footnote-creator-handle">@itsabhishekgup</span>
+                <span className="footnote-creator-handle">Support me!</span>
                 <svg className="footnote-external" viewBox="0 0 24 24" aria-hidden="true">
                   <path
                     d="M14 4h6v6M20 4l-9 9M10 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-4"
@@ -266,7 +266,7 @@ function Sidebar({ activeSection = "dashboard", onNavigate }) {
               fill="currentColor"
             />
           </svg>
-          <span className="footnote-creator-handle">@itsabhishekgup</span>
+          <span className="footnote-creator-handle">Request Support</span>
           <svg className="footnote-external" viewBox="0 0 24 24" aria-hidden="true">
             <path
               d="M14 4h6v6M20 4l-9 9M10 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-4"

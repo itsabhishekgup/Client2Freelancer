@@ -1,33 +1,33 @@
 const HIGHLIGHTS = [
   {
     icon: "💵",
-    title: "USDC is the native gas",
-    body: "Every transaction fee is paid in USDC — dollar-denominated, low, and predictable. No volatile ETH/BTC gas to worry about, ever.",
+    title: "Pay fees in USDC, not gas tokens",
+    body: "Arc runs on USDC as its native gas, so every escrow action costs a tiny, dollar-denominated fee. No volatile ETH to hold, no surprise gas spikes — just predictable dollars.",
   },
   {
     icon: "⚡",
     title: "Deterministic sub-second finality",
-    body: "Transactions finalize in under a second, so escrow actions (deposit, approve, release) confirm almost instantly — no waiting for confirmations.",
+    body: "Deposits, approvals, and releases settle in under a second. Money moves the moment both parties agree — no waiting on confirmations to trust the outcome.",
   },
   {
     icon: "🔗",
-    title: "EVM-compatible",
-    body: "Arc speaks the same language as Ethereum — your Solidity contracts, wallets (MetaMask, OKX), and tooling all work as-is.",
+    title: "EVM-compatible, instantly familiar",
+    body: "Arc speaks Solidity and works with the wallets and tools you already use. Client2Freelancer runs on the same standard every developer already knows.",
   },
   {
     icon: "💱",
-    title: "Built-in FX engine",
-    body: "An institutional-grade RFQ system for stablecoin foreign exchange, purpose-built for global commerce and settlement.",
+    title: "Built for stablecoin settlement",
+    body: "An institutional-grade FX engine and native USDC make global, dollar-based payments and settlement a first-class feature — not an afterthought.",
   },
   {
     icon: "🛡️",
-    title: "Opt-in privacy",
-    body: "Privacy features are available on demand — public by default, private when you need it. Full transparency where it matters.",
+    title: "Secure on-chain custody",
+    body: "Funds live in the escrow contract, verifiable at any time — never with a counterparty. Transparent by default, with opt-in privacy where it matters.",
   },
   {
     icon: "🏛️",
     title: "Built by Circle",
-    body: "Arc is an open Layer-1 blockchain from Circle, the team behind USDC. Full Circle platform integration for stablecoin finance.",
+    body: "Arc is a Layer-1 blockchain from Circle, the team behind USDC — with full Circle platform integration for stablecoin finance.",
   },
 ];
 
@@ -96,12 +96,12 @@ const CIRCLE_INTEGRATIONS = [
   {
     icon: "💵",
     title: "USDC native gas",
-    body: "Circle's USDC is the network's native currency — every fee, deposit, and payout settles in USDC with no wrapping or bridge hop.",
+    body: "USDC is the network's own currency — every fee, deposit, and payout settles in USDC with no wrapping or bridge hop.",
   },
   {
     icon: "🔀",
     title: "CCTP cross-chain transfers",
-    body: "Circle's Cross-Chain Transfer Protocol moves USDC natively between 20+ chains. Client2Freelancer uses it for 'Fund From Any Chain' — escrows funded straight from Base or Ethereum.",
+    body: "Circle's Cross-Chain Transfer Protocol moves USDC natively between chains. Client2Freelancer uses it for 'Fund From Any Chain' — escrows funded straight from Base or Ethereum.",
   },
   {
     icon: "🏦",
@@ -119,7 +119,7 @@ const ARCBRIDGE_TABLE = [
   { label: "Network", value: "Arc Testnet" },
   { label: "Chain ID", value: "5042002" },
   { label: "USDC decimals", value: "6" },
-  { label: "Escrow contract", value: "0x788BD809…D0ff3" },
+  { label: "Escrow contract", value: "0xa12b4775…65e4" },
   { label: "Explorer", value: "testnet.arcscan.app" },
   { label: "Type", value: "Stablecoin-native Layer 1 (EVM)" },
 ];
@@ -127,19 +127,19 @@ const ARCBRIDGE_TABLE = [
 const REASONS = [
   {
     title: "Fees stay in dollars",
-    body: "An escrow platform's costs should never swing with the crypto market. Paying gas in USDC means every action has a tiny, predictable dollar cost.",
+    body: "An escrow platform's costs should never swing with the crypto market. USDC-native gas means every action has a tiny, predictable dollar cost — for clients and freelancers alike.",
   },
   {
     title: "Fast finality = fast releases",
-    body: "Sub-second finality means funds release to the freelancer almost the moment the client approves — the whole point of a payment platform.",
+    body: "Sub-second finality means funds reach the freelancer almost the moment the client approves. Payments clear when they're meant to, not minutes later.",
   },
   {
     title: "Native USDC, zero bridges",
-    body: "USDC is the network's own currency — no wrapped tokens, no bridge risk, no extra approval hop. Deposit and release USDC directly.",
+    body: "USDC is the network's own currency — no wrapped tokens, no bridge risk, no extra approval hop. Deposit and release USDC directly, securely.",
   },
   {
     title: "EVM = instant tooling",
-    body: "Standard Solidity, standard wallets, standard explorers. Client2Freelancer runs on the same stack every developer already knows.",
+    body: "Standard Solidity, standard wallets, standard explorers. Client2Freelancer runs on the same trusted stack every developer already knows.",
   },
 ];
 
@@ -148,9 +148,10 @@ function WhyArc({ onNavigate }) {
     <main className="dashboard help-page whyarc-page">
       <section className="dashboard-header">
         <div className="theme-badge">Arc Network • Why Arc</div>
-        <h1>Why Arc?</h1>
+        <h1>Payments that settle in dollars, on a chain built for it</h1>
         <p className="dashboard-lead">
-          Client2Freelancer is built on Arc — a stablecoin-native Layer 1 blockchain from Circle, the team behind USDC.
+          Client2Freelancer runs on Arc — a stablecoin-native Layer 1 from Circle. It's the
+          reason escrow payments here are fast, predictable, and secure from start to finish.
         </p>
       </section>
 
@@ -167,10 +168,11 @@ function WhyArc({ onNavigate }) {
           <h4>What is Arc?</h4>
           <p>
             Arc is an open, EVM-compatible Layer 1 blockchain designed for stablecoin finance.
-            Unlike general-purpose chains that charge gas in volatile tokens, Arc runs on{" "}
-            <strong>USDC as its native gas</strong> — low, predictable, dollar-denominated fees.
-            It's built by Circle, the company behind USDC, and targets payments, settlement,
-            and on-chain commerce.
+            Instead of charging gas in a volatile native token, Arc runs on{" "}
+            <strong>USDC as its native gas</strong> — so every fee is low, dollar-denominated,
+            and predictable. Built by Circle, the company behind USDC, Arc is purpose-built for
+            payments, settlement, and on-chain commerce. That's exactly what an escrow platform
+            needs.
           </p>
         </div>
 
@@ -206,9 +208,9 @@ function WhyArc({ onNavigate }) {
         <div className="whyarc-compare">
           <h4>Arc vs general-purpose chains</h4>
           <p className="whyarc-compare-note">
-            The short version: Arc is purpose-built for stablecoin payments, so the
-            things an escrow platform cares about most — stable fees, fast finality,
-            native USDC — are exactly what Arc optimizes for.
+            The short version: Arc is purpose-built for stablecoin payments, so the things an
+            escrow platform cares about most — stable fees, fast finality, native USDC — are
+            exactly what Arc optimizes for.
           </p>
           <div className="whyarc-compare-table">
             <div className="whyarc-compare-head">
@@ -229,8 +231,8 @@ function WhyArc({ onNavigate }) {
         <div className="whyarc-circle">
           <h4>Built on the Circle ecosystem</h4>
           <p className="whyarc-compare-note">
-            Arc is Circle's Layer 1, so the full Circle platform is native here — and Client2Freelancer
-            plugs straight into it.
+            Arc is Circle's Layer 1, so the full Circle platform is native here — and
+            Client2Freelancer plugs straight into it.
           </p>
           <div className="whyarc-grid">
             {CIRCLE_INTEGRATIONS.map((c) => (
@@ -250,8 +252,9 @@ function WhyArc({ onNavigate }) {
             <strong>🌉 Fund From Any Chain — powered by Circle CCTP</strong>
             <p>
               Bridge USDC from Base Sepolia or Ethereum Sepolia straight into an escrow: CCTP
-              burns on the source chain and mints natively on Arc, then Client2Freelancer auto-deposits
-              into the escrow. No manual bridging, no wrapped tokens, no liquidity pools.
+              burns on the source chain and mints natively on Arc, then Client2Freelancer
+              auto-deposits into the escrow. No manual bridging, no wrapped tokens, no liquidity
+              pools.
             </p>
           </div>
         </div>
@@ -289,6 +292,14 @@ function WhyArc({ onNavigate }) {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="whyarc-closing">
+          <p>
+            Every escrow on Client2Freelancer is verifiable on-chain — funds held in a smart
+            contract, deadlines enforced by code, and settlement in native USDC. Arc makes the
+            whole experience fast, predictable, and built to be trusted.
+          </p>
         </div>
 
         <div className="help-actions">

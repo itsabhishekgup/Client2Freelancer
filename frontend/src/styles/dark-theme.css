@@ -2707,6 +2707,24 @@ select:focus {
   color: #c7cdff;
 }
 
+/* ---- Why Arc: closing trust message ---- */
+.whyarc-closing {
+  margin: 0 0 22px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(94, 106, 210, 0.28);
+  background:
+    radial-gradient(600px 200px at 50% -30%, rgba(94, 106, 210, 0.14), transparent 65%),
+    rgba(13, 14, 16, 0.85);
+}
+
+.whyarc-closing p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #b8bec8;
+}
+
 /* ---- Why Arc: resources ---- */
 .whyarc-resources {
   margin-bottom: 22px;

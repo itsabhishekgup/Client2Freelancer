@@ -96,6 +96,7 @@ describe("chatWithAssistant", () => {
     expect(JSON.parse(init.body)).toEqual({
       message: "how do I create",
       history: [{ role: "user", content: "hi" }],
+      wallet: "",
     });
   });
 

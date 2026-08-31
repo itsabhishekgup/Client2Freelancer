@@ -1043,6 +1043,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     history: Optional[List[ChatMessage]] = []
+    wallet: str = ""
 
 
 @app.get("/api/safety")
@@ -1078,9 +1079,13 @@ def _format_escrow_for_ai(data: Optional[Dict[str, Any]]) -> Optional[str]:
 async def chat_endpoint(req: ChatRequest) -> Dict[str, Any]:
     """Hybrid assistant: instant rule-based answers, Gemini LLM fallback.
 
-    If the user's question mentions an escrow ID ("escrow 3", "escrow id 42"),
-    fetch that escrow's live on-chain state and inject it into the AI context
-    so answers are grounded in real data."""
+    Builds a live context from real chain data so answers can be personalized:
+    - The user's connected wallet (USDC balance + allowance + role on any
+      escrow referenced in the question).
+    - Any escrow ID mentioned in the question ("escrow 3", "escrow id 42") —
+      its full on-chain lifecycle state.
+    All RPC reads run in worker threads so a slow/rate-limited RPC never
+    freezes the event loop."""
     context = {
         "chain_name": CHAIN_NAME,
         "chain_id": CHAIN_ID,
@@ -1088,18 +1093,55 @@ async def chat_endpoint(req: ChatRequest) -> Dict[str, Any]:
         "contract_address": CONTRACT_ADDRESS,
     }
 
+    # 1) Escrow referenced in the message -> fetch live on-chain state.
     m = _ESCROW_ID_RE.search(req.message)
-    if m:
-        escrow_id = int(m.group(1))
-        if escrow_id > 0:
-            # _fetch_escrow does blocking eth_call RPC — run it in a worker
-            # thread so a slow/rate-limited RPC can't freeze the event loop
-            # (and with it every other endpoint) for the duration.
-            data = await asyncio.to_thread(_fetch_escrow, escrow_id)
-            context["escrow_live"] = _format_escrow_for_ai(data) or (
-                f"Escrow #{escrow_id} does not exist on the chain "
-                "(the contract returned no escrow for that ID)."
+    escrow_id = int(m.group(1)) if m else None
+    if escrow_id and escrow_id > 0:
+        data = await asyncio.to_thread(_fetch_escrow, escrow_id)
+        context["escrow_live"] = _format_escrow_for_ai(data) or (
+            f"Escrow #{escrow_id} does not exist on the chain "
+            "(the contract returned no escrow for that ID)."
+        )
+        if data:
+            context["escrow_data"] = data
+
+    # 2) Wallet supplied by the frontend -> enrich with balance/allowance and
+    #    the caller's role on the referenced escrow (client / freelancer /
+    #    arbitrator / observer). This is what lets the Copilot give exact,
+    #    role-specific next steps instead of a generic walkthrough.
+    wallet = (req.wallet or "").strip()
+    if wallet and Web3.is_address(wallet):
+        checksum = Web3.to_checksum_address(wallet)
+        balance = await asyncio.to_thread(
+            lambda: safe_call(lambda: usdc.functions.balanceOf(checksum).call(), None)
+        )
+        allowance = await asyncio.to_thread(
+            lambda: safe_call(
+                lambda: usdc.functions.allowance(checksum, CONTRACT_ADDRESS).call(), None
             )
+        )
+        arb = await asyncio.to_thread(
+            lambda: safe_call(lambda: contract.functions.arbitrator().call(), None)
+        )
+
+        context["wallet_live"] = {
+            "address": checksum,
+            "short_address": short(checksum),
+            "usdc_balance": usdc_fmt(balance) if balance is not None else None,
+            "allowance": usdc_fmt(allowance) if allowance is not None else None,
+            "is_arbitrator": bool(arb and str(arb).lower() == checksum.lower()),
+        }
+
+        if escrow_id and context.get("escrow_data"):
+            esc = context["escrow_data"]
+            esc_client = str(esc.get("client") or "").lower()
+            esc_free = str(esc.get("freelancer") or "").lower()
+            if esc_client == checksum.lower():
+                context["wallet_live"]["role"] = "client"
+            elif esc_free == checksum.lower():
+                context["wallet_live"]["role"] = "freelancer"
+            else:
+                context["wallet_live"]["role"] = "observer"
 
     history = [
         {"role": m.role, "content": m.content}

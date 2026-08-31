@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { chatWithAssistant } from "../lib/liveApi";
+import { useWalletBridge } from "../hooks/useWalletBridge";
 
 const QUICK_REPLIES = [
   "How do I create an escrow?",
@@ -144,6 +145,7 @@ export default function ChatWidget() {
   const listRef = useRef(null);
   const endRef = useRef(null);
   const inputRef = useRef(null);
+  const { address: walletAddress } = useWalletBridge();
 
   // Instant jump to bottom when the panel opens (no animation on first paint).
   useEffect(() => {
@@ -181,7 +183,7 @@ export default function ChatWidget() {
     setMessages((prev) => [...prev, { role: "user", content: text }]);
     setLoading(true);
     try {
-      const res = await chatWithAssistant(text, history);
+      const res = await chatWithAssistant(text, history, walletAddress);
       setMessages((prev) => [
         ...prev,
         {
