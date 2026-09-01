@@ -27,6 +27,7 @@ import EscrowDetailModal from "./EscrowDetailModal";
 import EscrowsList from "./EscrowsList";
 import EscrowSummaryPanel from "./EscrowSummaryPanel";
 import WalletPanel from "./WalletPanel";
+import { loadActivityHistory, mapFeedEvent, saveActivityHistory } from "../lib/liveApi";
 
 // Read-only chain data (activity feed, recent escrows, escrow summary) loads
 // via a public RPC even when no wallet is connected.
@@ -60,7 +61,11 @@ function Dashboard(props) {
     network: "Arc Testnet",
     loading: false,
   });
-  const [activityItems, setActivityItems] = useState([]);
+  // Hydrate the activity/transaction feed from localStorage first so the user's
+  // previous history is visible instantly, before the live poll/SSE re-syncs.
+  const [activityItems, setActivityItems] = useState(() =>
+    loadActivityHistory().map((ev, i) => mapFeedEvent(ev, i)),
+  );
   const [recentEscrows, setRecentEscrows] = useState([]);
   const [summaryEscrow, setSummaryEscrow] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -249,25 +254,14 @@ function Dashboard(props) {
         // getLogs hammering — the fast testnet RPC rate-limits bursts). Fall
         // back to chunked direct getLogs only when the backend is unreachable.
         let feed = null;
+        let rawFeedEvents = [];
 
         try {
           const api = await import("../lib/liveApi");
           const snap = await api.fetchLiveSnapshot({ signal: null });
           if (snap && Array.isArray(snap.events) && snap.events.length > 0) {
-            feed = snap.events.slice(0, 12).map((ev, i) => ({
-              key: `${ev.tx_hash}-${ev.block}-${i}`,
-              label: ev.label ?? ev.event ?? "Event",
-              tone: ev.tone ?? "waiting",
-              icon: ev.icon ?? "•",
-              escrowId: ev.escrow_id != null ? String(ev.escrow_id) : "--",
-              txHash: ev.tx_hash,
-              blockNumber: ev.block,
-              timeAgo:
-                ev.time_ago != null
-                  ? formatRelativeTime(Math.floor(Date.now() / 1000) - Number(ev.time_ago))
-                  : "just now",
-              detail: ev.detail ?? `${ev.label ?? ev.event} on-chain.`,
-            }));
+            rawFeedEvents = snap.events;
+            feed = snap.events.slice(0, 12).map((ev, i) => api.mapFeedEvent(ev, i));
           }
         } catch (err) {
           console.warn("backend /live unavailable, falling back to direct RPC feed:", err);
@@ -415,7 +409,22 @@ function Dashboard(props) {
         }
 
         if (cancelled) return;
-        setActivityItems(feed ?? []);
+        if (rawFeedEvents.length) {
+          saveActivityHistory(rawFeedEvents);
+        }
+        setActivityItems((prev) => {
+          if (!feed) return prev;
+          const seen = new Set(prev.map((p) => `${p.txHash}-${p.blockNumber}`));
+          const merged = prev.slice();
+          for (const item of feed) {
+            const key = `${item.txHash}-${item.blockNumber}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            merged.push(item);
+          }
+          merged.sort((a, b) => (b.blockNumber ?? 0) - (a.blockNumber ?? 0));
+          return merged.slice(0, 200);
+        });
 
         // List ALL escrows — prefer the backend /escrows endpoint (escrowCount-
         // based, cached server-side). If the backend is down or the response is
@@ -615,6 +624,44 @@ function Dashboard(props) {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [refreshMs]);
+
+  // Near-real-time feed: subscribe to the backend's Server-Sent Events stream
+  // and prepend each freshly-indexed event into the activity feed. The 30s poll
+  // above remains as a safety net (and to refresh escrows/wallet/balance), so
+  // a dropped SSE connection never leaves the UI stale.
+  useEffect(() => {
+    let cleanup = () => {};
+
+    (async () => {
+      try {
+        const api = await import("../lib/liveApi");
+        cleanup = api.subscribeToEvents(
+          (ev) => {
+            const item = api.mapFeedEvent(ev);
+            saveActivityHistory([ev]);
+            setActivityItems((prev) => {
+              // De-duplicate by tx hash + block so a poll arriving after an SSE
+              // push never creates a duplicate row.
+              const exists = prev.some(
+                (p) => p.txHash === item.txHash && p.blockNumber === item.blockNumber,
+              );
+              if (exists) return prev;
+              return [item, ...prev].slice(0, 200);
+            });
+          },
+          (err) => {
+            console.warn("live events stream disconnected; polling continues:", err);
+          },
+        );
+      } catch (err) {
+        console.warn("could not open live events stream:", err);
+      }
+    })();
+
+    return () => {
+      cleanup();
+    };
+  }, []);
 
   const displayedSummary = summaryEscrow ?? recentEscrows[0] ?? null;
   const terminalLabel = getWorkflowTerminalLabel(displayedSummary);

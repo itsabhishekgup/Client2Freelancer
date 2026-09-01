@@ -157,3 +157,61 @@ def test_answer_rules_first():
 def test_answer_empty_question():
     result = asyncio.run(assistant.answer("   ", [], CONTEXT))
     assert result["source"] == "rules"
+
+
+def test_personalized_diagnosis_has_no_boilerplate_disclaimer():
+    """The repeated 'on-chain facts / signed transaction' trailer must be gone."""
+    escrow = {
+        "id": "7",
+        "amount": "5.00 USDC",
+        "funded": True,
+        "workSubmitted": False,
+        "approved": False,
+        "released": False,
+        "refunded": False,
+        "disputed": False,
+        "createdAt": 1_700_000_000,
+        "expiresAt": 1_700_604_800,
+    }
+    context = {
+        "escrow_data": escrow,
+        "wallet_live": {"role": "client", "usdc_balance": "10.00 USDC", "allowance": "5.00 USDC"},
+    }
+    out = assistant.personalized_diagnosis("what should I do with escrow 7", context)
+    assert out is not None
+    lower = out.lower()
+    assert "on-chain facts" not in lower
+    assert "signed transaction" not in lower
+    assert "wallet" not in lower or "your usdc balance" in lower
+    # Still role-aware and actionable.
+    assert "client" in lower
+    assert "submit work" in lower
+
+
+def test_personalized_diagnosis_is_role_and_stage_aware(monkeypatch):
+    """Expired + funded -> client gets the cancel-refund path, not a generic FAQ."""
+    escrow = {
+        "id": "9",
+        "amount": "3.00 USDC",
+        "funded": True,
+        "workSubmitted": False,
+        "approved": False,
+        "released": False,
+        "refunded": False,
+        "disputed": False,
+        "createdAt": 1_700_000_000,
+        "expiresAt": 1_000_000_000,  # long expired
+    }
+    context = {
+        "escrow_data": escrow,
+        "wallet_live": {"role": "client", "usdc_balance": None, "allowance": None},
+    }
+    out = assistant.personalized_diagnosis("escrow 9 refund", context)
+    assert out is not None
+    lower = out.lower()
+    assert "cancel escrow" in lower
+    assert "full refund" in lower
+
+
+def test_personalized_diagnosis_returns_none_without_escrow():
+    assert assistant.personalized_diagnosis("hi", {}) is None

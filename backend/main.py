@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import random
 import re
@@ -13,8 +14,10 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from web3 import Web3
+from web3._utils.events import event_abi_to_log_topic
 from dotenv import load_dotenv
 
 # Load backend/.env (RPC, contract, GEMINI_API_KEY, ...) BEFORE importing
@@ -274,6 +277,12 @@ USDC_ABI = [
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     """Initialize chain state on startup and stop the poller on shutdown."""
+    # Reload any previously-persisted feed events so a restart doesn't wipe the
+    # user's transaction history. The poller then merges fresh events on top.
+    persisted = _load_events_store()
+    if persisted:
+        state.recent_events = persisted
+
     try:
         state.latest_block = int(w3.eth.block_number)
         state.last_scanned_block = max(1, state.latest_block - BACKFILL_BLOCKS)
@@ -291,6 +300,7 @@ async def lifespan(_: FastAPI):
             await task
         except asyncio.CancelledError:
             pass
+        _save_events_store(state.recent_events)
 
 
 app = FastAPI(title="Client2Freelancer Live API", version="1.0.0", lifespan=lifespan)
@@ -306,6 +316,14 @@ w3 = Web3(Web3.HTTPProvider(ARC_RPC_URL, request_kwargs={"timeout": 12}))
 contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=ABI)
 usdc = w3.eth.contract(address=USDC_ADDRESS, abi=USDC_ABI)
 
+# Map each tracked event's topic0 -> event name so a single contract-wide
+# get_logs (no topic filter) can be decoded without 12 separate RPC calls.
+_EVENT_TOPIC_TO_NAME: Dict[str, str] = {}
+for _entry in ABI:
+    if _entry.get("type") == "event":
+        _EVENT_TOPIC_TO_NAME[event_abi_to_log_topic(_entry).hex()] = _entry["name"]
+
+
 
 @dataclass
 class ChainState:
@@ -318,6 +336,91 @@ class ChainState:
 
 
 state = ChainState()
+
+
+# ---------------------------------------------------------------------------
+# Persistent event store: feed events are written to a local JSON file so a
+# browser refresh or a backend restart does not wipe the user's transaction
+# history. The in-memory list remains the fast read path; the file is only a
+# durability backstop that is reloaded on startup.
+# ---------------------------------------------------------------------------
+_EVENTS_STORE_PATH = os.path.join(_BACKEND_DIR, ".events_store.json")
+MAX_STORED_EVENTS = 500
+
+
+def _load_events_store() -> List[Dict[str, Any]]:
+    """Read persisted feed events from disk. Returns [] on any failure."""
+    try:
+        with open(_EVENTS_STORE_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if isinstance(data, list):
+            return data
+    except (OSError, ValueError, TypeError):
+        pass
+    return []
+
+
+def _save_events_store(events: List[Dict[str, Any]]) -> None:
+    """Persist feed events to disk atomically. Best-effort: a failed write must
+    never break the poller, so errors are swallowed."""
+    try:
+        tmp = _EVENTS_STORE_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(events[:MAX_STORED_EVENTS], fh)
+        os.replace(tmp, _EVENTS_STORE_PATH)
+    except OSError:
+        pass
+
+
+def _event_key(event: Dict[str, Any]) -> tuple:
+    """Stable identity for an event: tx hash + block. Used to de-duplicate so a
+    re-scan or a poll overlapping an SSE push never shows a row twice."""
+    return (event.get("tx_hash"), event.get("block"))
+
+
+def _merge_events(existing: List[Dict[str, Any]], incoming: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Prepend incoming events onto existing, de-duplicated by (tx, block)."""
+    seen = {_event_key(e) for e in existing}
+    merged = list(existing)
+    for ev in incoming:
+        key = _event_key(ev)
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.insert(0, ev)
+    return merged
+
+
+def load_full_history() -> List[Dict[str, Any]]:
+    """Return the complete persisted activity history, newest first.
+
+    The in-memory list is the fast read path but is capped during polling; the
+    JSON store holds the durable, longer history. Merge the two so a browser
+    refresh or restart always surfaces the full prior transaction history, not
+    just the most recent in-memory slice.
+    """
+    return _merge_events(_load_events_store(), state.recent_events)
+
+
+# ---------------------------------------------------------------------------
+# Server-Sent Events: a set of asyncio queues, one per connected browser tab.
+# The poller pushes freshly-indexed feed events into every queue as soon as a
+# scan completes, so the frontend updates in near-real-time instead of waiting
+# for its next 30s poll. Each queue is bounded; a slow consumer is dropped
+# rather than allowed to grow unbounded and block the poller.
+# ---------------------------------------------------------------------------
+_sse_subscribers: set[asyncio.Queue] = set()
+_sse_max_events = 32
+
+
+def _broadcast_event(event: Dict[str, Any]) -> None:
+    """Push one feed event to every connected SSE subscriber, non-blocking."""
+    for queue in list(_sse_subscribers):
+        try:
+            queue.put_nowait(event)
+        except asyncio.QueueFull:
+            # Slow consumer: drop the stale queue rather than leak memory.
+            _sse_subscribers.discard(queue)
 
 
 # Simple token-bucket limiter shared by the poller and request-time RPC reads.
@@ -720,22 +823,84 @@ def _rpc_retry_after(exc: Exception) -> Optional[float]:
 def scan_new_events(from_block: int, to_block: int) -> tuple[List[Dict[str, Any]], bool]:
     """Scan the block window for all tracked events.
 
-    Returns (events, complete). complete is False when any event-type scan
-    failed after retries, so the poller can avoid advancing past the window —
-    otherwise the events in that gap would be dropped from the feed forever.
+    Returns (events, complete). complete is False when the scan failed after
+    retries, so the poller can avoid advancing past the window — otherwise the
+    events in that gap would be dropped from the feed forever.
 
-    The public Arc testnet RPC rejects multi-topic (OR'd) get_logs with
-    "requested range too large" even on small ranges, so events are fetched
-    per event-type. Each call is paced through the shared RPC limiter (~2/s)
-    with exponential backoff on 429, so a full cycle of 10 event types is a
-    slow, steady trickle instead of a burst that trips the RPC's ~3-5 limit.
+    Fast path: a single contract-wide get_logs (no topic filter), decoded via
+    the topic->event map. The public Arc testnet RPC rejects OR'd multi-topic
+    get_logs, but a topic-less address-scoped get_logs is a single, well-formed
+    request — so this is both faster (1 call vs 12) and RPC-friendlier.
+
+    Fallback: if the single call fails, fall back to the previous per-event-type
+    scan so the feed never regresses on an RPC that rejects the combined shape.
     """
-    events: List[Dict[str, Any]] = []
     if from_block > to_block:
-        return events, True
+        return [], True
 
-    event_names = list(EVENT_META.keys())
     block_time_cache: Dict[int, int] = {}
+
+    def _decorate(raw_logs: List[Any]) -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        for log in raw_logs:
+            topic = None
+            topics = log.get("topics") or []
+            if topics:
+                t0 = topics[0]
+                topic = t0.hex() if hasattr(t0, "hex") else str(t0)
+            event_name = _EVENT_TOPIC_TO_NAME.get(topic)
+            if not event_name:
+                continue
+
+            try:
+                event_class = contract.events[event_name]
+                decoded = event_class.process_log(log)
+                args = dict(decoded["args"]) if "args" in decoded else {}
+            except Exception:
+                args = {}
+
+            tx_hash = log.get("transactionHash")
+            tx_hash = tx_hash.hex() if hasattr(tx_hash, "hex") else str(tx_hash)
+            block_number = int(log.get("blockNumber", 0))
+            item = event_item(event_name, args, block_number, tx_hash)
+
+            timestamp = block_time_cache.get(block_number)
+            if timestamp is None:
+                timestamp = limited_call(
+                    lambda b=block_number: int(w3.eth.get_block(b)["timestamp"]), None
+                )
+                block_time_cache[block_number] = timestamp
+            if timestamp:
+                item["time_ago"] = max(0, now_ts() - int(timestamp))
+            out.append(item)
+        return out
+
+    # Fast path: one contract-wide get_logs.
+    try:
+        def _single_scan() -> List[Any]:
+            RPC_LIMITER.acquire()
+            return w3.eth.get_logs(
+                {
+                    "address": CONTRACT_ADDRESS,
+                    "fromBlock": from_block,
+                    "toBlock": to_block,
+                }
+            )
+
+        logs = _get_logs_with_retry(_single_scan, from_block, to_block)
+        events = _decorate(logs)
+        events.sort(key=lambda item: (item["block"], item.get("escrow_id") or ""), reverse=True)
+        return events, True
+    except Exception as exc:
+        print(
+            f"[scan_new_events] combined get_logs {from_block}-{to_block} failed "
+            f"({exc}); falling back to per-event scan",
+            flush=True,
+        )
+
+    # Fallback: per-event-type scan (previous behavior).
+    events = []
+    event_names = list(EVENT_META.keys())
     all_complete = True
     consecutive_failures = 0
     for event_name in event_names:
@@ -749,14 +914,10 @@ def scan_new_events(from_block: int, to_block: int) -> tuple[List[Dict[str, Any]
             logs = _get_logs_with_retry(_do_scan, from_block, to_block)
             consecutive_failures = 0
         except Exception as exc:
-            # Log once so feed gaps are diagnosable instead of silent.
             print(f"[scan_new_events] {event_name} {from_block}-{to_block} failed: {exc}", flush=True)
             all_complete = False
             logs = []
             consecutive_failures += 1
-            # If the RPC is clearly rate-limited, don't burn the whole cycle
-            # retrying every remaining event type — mark the window incomplete
-            # and let the poller retry it after a backoff.
             if consecutive_failures >= 3:
                 break
 
@@ -766,10 +927,6 @@ def scan_new_events(from_block: int, to_block: int) -> tuple[List[Dict[str, Any]
             tx_hash = tx_hash.hex() if hasattr(tx_hash, "hex") else str(tx_hash)
             block_number = int(log.get("blockNumber", 0))
             item = event_item(event_name, args, block_number, tx_hash)
-            # Use the real block timestamp (fetched once per block) instead of
-            # treating the block *number* as a Unix timestamp. A failed read
-            # leaves time_ago at 0 ("just now") rather than producing a
-            # meaningless epoch-based value.
             timestamp = block_time_cache.get(block_number)
             if timestamp is None:
                 timestamp = limited_call(lambda b=block_number: int(w3.eth.get_block(b)["timestamp"]), None)
@@ -800,7 +957,12 @@ async def poll_chain() -> None:
             if recent_start <= latest:
                 new_events, scan_complete = await asyncio.to_thread(scan_new_events, recent_start, latest)
                 if new_events:
-                    state.recent_events = (new_events + state.recent_events)[:200]
+                    state.recent_events = _merge_events(state.recent_events, new_events)[:200]
+                    # Push only brand-new events (newest first) to SSE clients so
+                    # the UI updates immediately instead of on its next poll.
+                    for ev in new_events:
+                        _broadcast_event(ev)
+                    _save_events_store(state.recent_events)
                 state.latest_block = latest
                 state.healthy = True
                 state.error = ""
@@ -818,7 +980,8 @@ async def poll_chain() -> None:
                 if backfill_end <= recent_start:
                     old_events, backfill_ok = await asyncio.to_thread(scan_new_events, cursor, backfill_end)
                     if old_events:
-                        state.recent_events = (old_events + state.recent_events)[:200]
+                        state.recent_events = _merge_events(state.recent_events, old_events)[:200]
+                        _save_events_store(state.recent_events)
                     if backfill_ok:
                         state.last_scanned_block = backfill_end
                     else:
@@ -853,6 +1016,60 @@ def health() -> Dict[str, Any]:
         "error": state.error,
         "rpc_url": ARC_RPC_URL,
         "contract_address": CONTRACT_ADDRESS,
+    }
+
+
+@app.get("/api/events")
+async def events_stream():
+    """Server-Sent Events feed of new escrow activity.
+
+    The frontend opens this once and receives each freshly-indexed event the
+    moment the poller scans it — removing the up-to-30s delay of polling
+    /api/live. A short keep-alive comment is sent periodically so proxies
+    (including Vercel) don't buffer or time out the stream."""
+    queue: asyncio.Queue = asyncio.Queue(maxsize=_sse_max_events)
+    _sse_subscribers.add(queue)
+
+    async def generator():
+        try:
+            # Send an initial keep-alive so the connection is established.
+            yield ": connected\n\n"
+            while True:
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=15.0)
+                    yield f"data: {json.dumps(event)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keep-alive\n\n"
+        finally:
+            _sse_subscribers.discard(queue)
+
+    return StreamingResponse(
+        generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.get("/api/history")
+def history(limit: int = Query(default=500, ge=1, le=2000), offset: int = Query(default=0, ge=0)) -> Dict[str, Any]:
+    """Full persisted activity history (transaction/event feed).
+
+    Merges the durable JSON store with the current in-memory feed, de-duplicated
+    by (tx hash, block), so a browser refresh or a backend restart never loses
+    prior on-chain activity. Pagination matches /escrows (limit/offset)."""
+    events = load_full_history()
+    total = len(events)
+    page = events[offset : offset + limit]
+    return {
+        "events": page,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "synced_at": state.last_synced_at,
     }
 
 
@@ -1057,12 +1274,31 @@ _ESCROW_ID_RE = re.compile(r"\bescrow\s*(?:id\s*)?#?\s*(\d+)", re.IGNORECASE)
 
 
 def _format_escrow_for_ai(data: Optional[Dict[str, Any]]) -> Optional[str]:
-    """Human-readable one-paragraph summary of an escrow for the LLM prompt."""
+    """Human-readable summary of an escrow for the LLM prompt, with a clear
+    expiry status so the model can give a precise, stage-aware next action."""
     if not data:
         return None
     yes_no = lambda v: "yes" if v else "no"
     created = datetime.fromtimestamp(int(data.get("createdAt") or 0), tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     expires = datetime.fromtimestamp(int(data.get("expiresAt") or 0), tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    expires_at = int(data.get("expiresAt") or 0)
+    if expires_at <= 0:
+        expiry_note = "not yet set (the expiry clock starts only when the escrow is funded)"
+    else:
+        remaining = expires_at - int(datetime.now(timezone.utc).timestamp())
+        if remaining > 0:
+            days = remaining // 86400
+            hours = (remaining % 86400) // 3600
+            minutes = (remaining % 3600) // 60
+            expiry_note = (
+                f"{expires} (about {days}d {hours}h {minutes}m remaining)"
+                if days
+                else f"{expires} (about {hours}h {minutes}m remaining)"
+            )
+        else:
+            expiry_note = f"{expires} (EXPIRED — the timelock has passed)"
+
     return (
         f"Escrow #{data.get('id')} — current status: {data.get('status', 'unknown')}.\n"
         f"- Client: {data.get('client_short')} ({data.get('client')})\n"
@@ -1071,7 +1307,7 @@ def _format_escrow_for_ai(data: Optional[Dict[str, Any]]) -> Optional[str]:
         f"- Funded: {yes_no(data.get('funded'))}, Work submitted: {yes_no(data.get('workSubmitted'))}, "
         f"Approved: {yes_no(data.get('approved'))}, Released: {yes_no(data.get('released'))}, "
         f"Refunded: {yes_no(data.get('refunded'))}, Disputed: {yes_no(data.get('disputed'))}\n"
-        f"- Created: {created}, Expires: {expires}"
+        f"- Created: {created}, Expires: {expiry_note}"
     )
 
 

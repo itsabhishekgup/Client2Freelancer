@@ -101,6 +101,41 @@ def test_escrow_detail_zero_address_placeholder_is_not_found(client, monkeypatch
     assert r.status_code == 404
 
 
+def test_history_returns_persisted_events(client, monkeypatch):
+    """/api/history merges the durable store with in-memory events, newest first,
+    and paginates by limit/offset."""
+    store = [
+        {"event": "FundsReleased", "block": 10, "tx_hash": "0xaaa", "escrow_id": "2"},
+        {"event": "EscrowCreated", "block": 5, "tx_hash": "0xbbb", "escrow_id": "1"},
+    ]
+    memory = [
+        {"event": "FundsDeposited", "block": 15, "tx_hash": "0xccc", "escrow_id": "3"},
+        # Duplicate of a stored event — must be de-duplicated.
+        {"event": "FundsReleased", "block": 10, "tx_hash": "0xaaa", "escrow_id": "2"},
+    ]
+    monkeypatch.setattr(main, "_load_events_store", lambda: store)
+    monkeypatch.setattr(main, "state", SimpleNamespace(recent_events=memory, last_synced_at=123))
+
+    r = client.get("/api/history")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["total"] == 3
+    ids = [(e["block"], e["tx_hash"]) for e in body["events"]]
+    assert ids == [(15, "0xccc"), (10, "0xaaa"), (5, "0xbbb")]
+    assert body["synced_at"] == 123
+
+    # limit/offset pagination
+    r = client.get("/api/history", params={"limit": 2, "offset": 1})
+    assert r.json()["total"] == 3
+    assert [(e["block"], e["tx_hash"]) for e in r.json()["events"]] == [(10, "0xaaa"), (5, "0xbbb")]
+
+
+def test_history_invalid_params(client):
+    assert client.get("/api/history", params={"limit": 0}).status_code == 422
+    assert client.get("/api/history", params={"limit": 2001}).status_code == 422
+    assert client.get("/api/history", params={"offset": -1}).status_code == 422
+
+
 def test_live_invalid_address_returns_graceful_response(client, monkeypatch):
     """An invalid address must not 500 the /live endpoint."""
     monkeypatch.setattr(main, "_summary_cache", {"timestamp": 0.0, "data": None})

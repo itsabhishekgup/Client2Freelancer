@@ -4,8 +4,13 @@ import {
   fetchEscrows,
   fetchHealth,
   fetchSafety,
+  fetchHistory,
   chatWithAssistant,
   getApiBase,
+  mapFeedEvent,
+  loadActivityHistory,
+  saveActivityHistory,
+  mergeActivityHistory,
 } from "./liveApi";
 
 const API_BASE = (import.meta.env.VITE_BACKEND_URL || "/api").replace(/\/$/, "");
@@ -26,6 +31,40 @@ function mockFetchOnce({ ok = true, json = {}, text = "" } = {}) {
 describe("getApiBase", () => {
   it("returns the backend base URL without trailing slash", () => {
     expect(getApiBase()).toBe(API_BASE);
+  });
+});
+
+describe("mapFeedEvent", () => {
+  it("maps a backend feed event into the activity/transaction shape", () => {
+    const item = mapFeedEvent(
+      {
+        event: "FundsDeposited",
+        label: "Funds Deposited",
+        tone: "funded",
+        icon: "💰",
+        escrow_id: "13",
+        tx_hash: "0xabc123",
+        block: 123456,
+        time_ago: 30,
+        detail: "2.00 USDC locked in escrow",
+      },
+      0,
+    );
+
+    expect(item.key).toBe("0xabc123-123456-0");
+    expect(item.label).toBe("Funds Deposited");
+    expect(item.escrowId).toBe("13");
+    expect(item.blockNumber).toBe(123456);
+    expect(item.timeAgo).toBe("30s ago");
+    expect(item.detail).toBe("2.00 USDC locked in escrow");
+  });
+
+  it("falls back to defaults for missing fields", () => {
+    const item = mapFeedEvent({ tx_hash: "0x1", block: 5 });
+    expect(item.label).toBe("Event");
+    expect(item.icon).toBe("•");
+    expect(item.escrowId).toBe("--");
+    expect(item.timeAgo).toBe("just now");
   });
 });
 
@@ -71,7 +110,7 @@ describe("fetchEscrows", () => {
   });
 });
 
-describe("fetchHealth / fetchSafety", () => {
+describe("fetchHealth / fetchSafety / fetchHistory", () => {
   it("fetchHealth hits /health", async () => {
     const fetchMock = mockFetchOnce({ json: { ok: true } });
     await fetchHealth();
@@ -82,6 +121,43 @@ describe("fetchHealth / fetchSafety", () => {
     const fetchMock = mockFetchOnce({ json: { checks: {} } });
     await fetchSafety();
     expect(fetchMock).toHaveBeenCalledWith(`${API_BASE}/safety`, expect.anything());
+  });
+
+  it("fetchHistory sends limit and offset", async () => {
+    const fetchMock = mockFetchOnce({ json: { events: [] } });
+    await fetchHistory({ limit: 25, offset: 10 });
+    expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE}/history?limit=25&offset=10`);
+  });
+
+  it("fetchHistory defaults limit to 500", async () => {
+    const fetchMock = mockFetchOnce({ json: { events: [] } });
+    await fetchHistory();
+    expect(fetchMock.mock.calls[0][0]).toBe(`${API_BASE}/history?limit=500&offset=0`);
+  });
+});
+
+describe("activity history persistence", () => {
+  it("mergeActivityHistory de-duplicates, sorts newest first, and caps at 500", () => {
+    const existing = [
+      { tx_hash: "0x1", block: 5 },
+      { tx_hash: "0x2", block: 3 },
+    ];
+    const incoming = [
+      { tx_hash: "0x3", block: 10 },
+      { tx_hash: "0x1", block: 5 }, // duplicate
+    ];
+    const merged = mergeActivityHistory(existing, incoming);
+    expect(merged.map((e) => e.tx_hash)).toEqual(["0x3", "0x1", "0x2"]);
+  });
+
+  it("saveActivityHistory + loadActivityHistory round-trips via localStorage", () => {
+    const events = [
+      { tx_hash: "0xaaa", block: 7 },
+      { tx_hash: "0xbbb", block: 4 },
+    ];
+    saveActivityHistory(events);
+    const loaded = loadActivityHistory();
+    expect(loaded.map((e) => e.tx_hash)).toEqual(["0xaaa", "0xbbb"]);
   });
 });
 
