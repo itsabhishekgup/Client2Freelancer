@@ -99,6 +99,7 @@ The result is a trustless, transparent, dollar-denominated payment rail for gig 
 - **Landing page** with product showcase, CCTP cross-chain funding explainer, and a "Why Arc?" callout.
 - **Dark futuristic UI** — glassmorphism, purple/blue neon, and accent themes (opt-in "Aurora" light glass theme).
 - **Analytics dashboard** — wallet overview, escrow summary, and a live activity feed.
+- **Compact Recent Activity (desktop)** — shows the latest 3 activities by default with a "Show more" button for the rest; mobile keeps its own premium layout.
 - **Live expiry countdowns** — tone-coded on cards, the summary panel, and the detail modal.
 - **Full escrow actions** — create, approve, deposit, cancel, dispute, resolve, and release (per-role buttons) with pre-flight balance/allowance checks and tx-timeout handling.
 - **CSV export** — one-click download of the filtered escrow list.
@@ -481,8 +482,8 @@ After a redeploy, update `CONTRACT_ADDRESS` in `backend/.env` and `frontend/src/
 | Suite | Tests | Command |
 |---|---|---|
 | Smart contracts | 70 | `cd contracts && forge test` |
-| Backend | 97 | `cd backend && python -m pytest tests/ -v` |
-| Frontend | 90 | `cd frontend && npx vitest run` |
+| Backend | 102 | `cd backend && python -m pytest tests/ -v` |
+| Frontend | 100 | `cd frontend && npx vitest run` |
 
 ## Credits & Acknowledgements
 

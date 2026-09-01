@@ -2925,6 +2925,62 @@ select:focus {
   margin-top: 4px;
 }
 
+.activity-feed-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+/* Desktop-only: keep Recent Activity compact — tighter rows and smaller icons,
+   while mobile keeps its own premium layout (768px and below is untouched). */
+@media (min-width: 769px) {
+  .activity-feed-list {
+    gap: 8px;
+  }
+
+  .activity-item {
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+  }
+
+  .activity-item-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    font-size: 15px;
+  }
+
+  .activity-item-title-row {
+    gap: 8px;
+  }
+
+  .activity-item-title-row strong {
+    font-size: 13px;
+  }
+
+  .activity-item-title-row .status-badge {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+
+  .activity-item-detail {
+    margin-top: 2px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .activity-item-time {
+    font-size: 11px;
+  }
+
+  .activity-item-hash {
+    font-size: 10.5px;
+    margin-top: 2px;
+  }
+}
+
 /* ============================================================
    Mobile Linear polish — 768px and below (desktop untouched)
    ============================================================ */
