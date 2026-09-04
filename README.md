@@ -109,6 +109,14 @@ The result is a trustless, transparent, dollar-denominated payment rail for gig 
 - **Escrow Copilot** — floating chat widget (English/Hindi), trained on the escrow lifecycle with a Gemini fallback.
 - **Mobile-first layout** with bottom navigation and a hamburger drawer, including a "Desktop site" fallback for touch devices.
 
+## Wallet-Scoped View (Upcoming)
+
+> **Planned** — not yet shipped. The dashboard will scope **My Escrows**, **Activity**, and **Transactions** to the currently connected wallet.
+
+- **Connect to see your data** — when a wallet is connected, only escrows where the address is the **client** or **freelancer** (and the related activity/tx history) will be shown.
+- **Not connected state** — while no wallet is connected, these sections show a "Connect your wallet" prompt instead of the global feed.
+- **Role-aware filtering** — each connected user sees their own created escrows, received work, and relevant on-chain activity only.
+
 ## Escrow Lifecycle
 
 The six-step lifecycle is defined in the frontend (`src/lib/escrowFormat.js`) and enforced by the contract:
@@ -472,6 +480,7 @@ After a redeploy, update `CONTRACT_ADDRESS` in `backend/.env` and `frontend/src/
 
 ## Future Improvements
 
+- **Wallet-scoped view** — scope My Escrows, Activity, and Transactions to the connected wallet (see [Wallet-Scoped View](#wallet-scoped-view-upcoming)).
 - Cross-chain escrow via bridge messaging (LayerZero/Wormhole).
 - Fiat on/off-ramp integration.
 - Mainnet deployment once Arc mainnet is available and audited.
