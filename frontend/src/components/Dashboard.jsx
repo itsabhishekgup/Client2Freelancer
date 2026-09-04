@@ -414,16 +414,15 @@ function Dashboard(props) {
         }
         setActivityItems((prev) => {
           if (!feed) return prev;
-          const seen = new Set(prev.map((p) => `${p.txHash}-${p.blockNumber}`));
-          const merged = prev.slice();
+          // Upsert by (tx hash, block) so a fresh backend copy replaces a stale
+          // hydrated entry (which may carry an old frozen "time ago" snapshot).
+          const byKey = new Map(prev.map((p) => [`${p.txHash}-${p.blockNumber}`, p]));
           for (const item of feed) {
-            const key = `${item.txHash}-${item.blockNumber}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            merged.push(item);
+            byKey.set(`${item.txHash}-${item.blockNumber}`, item);
           }
-          merged.sort((a, b) => (b.blockNumber ?? 0) - (a.blockNumber ?? 0));
-          return merged.slice(0, 200);
+          return [...byKey.values()]
+            .sort((a, b) => (b.blockNumber ?? 0) - (a.blockNumber ?? 0))
+            .slice(0, 200);
         });
 
         // List ALL escrows — prefer the backend /escrows endpoint (escrowCount-
@@ -640,13 +639,14 @@ function Dashboard(props) {
             const item = api.mapFeedEvent(ev);
             saveActivityHistory([ev]);
             setActivityItems((prev) => {
-              // De-duplicate by tx hash + block so a poll arriving after an SSE
-              // push never creates a duplicate row.
-              const exists = prev.some(
-                (p) => p.txHash === item.txHash && p.blockNumber === item.blockNumber,
-              );
-              if (exists) return prev;
-              return [item, ...prev].slice(0, 200);
+              // Upsert by tx hash + block so a poll arriving after an SSE push
+              // never creates a duplicate row and a fresh copy replaces a stale
+              // hydrated entry.
+              const byKey = new Map(prev.map((p) => [`${p.txHash}-${p.blockNumber}`, p]));
+              byKey.set(`${item.txHash}-${item.blockNumber}`, item);
+              return [...byKey.values()]
+                .sort((a, b) => (b.blockNumber ?? 0) - (a.blockNumber ?? 0))
+                .slice(0, 200);
             });
           },
           (err) => {

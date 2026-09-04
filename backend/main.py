@@ -281,7 +281,8 @@ async def lifespan(_: FastAPI):
     # user's transaction history. The poller then merges fresh events on top.
     persisted = _load_events_store()
     if persisted:
-        state.recent_events = persisted
+        state.recent_events = _backfill_event_timestamps(persisted)
+        _save_events_store(state.recent_events)
 
     try:
         state.latest_block = int(w3.eth.block_number)
@@ -370,6 +371,29 @@ def _save_events_store(events: List[Dict[str, Any]]) -> None:
         os.replace(tmp, _EVENTS_STORE_PATH)
     except OSError:
         pass
+
+
+def _backfill_event_timestamps(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Populate each event's absolute block timestamp when missing.
+
+    Older persisted events carry only a `time_ago` snapshot, which freezes at
+    scan time and drifts wrong as wall-clock time advances. Resolving each event
+    back to its real block time lets the frontend render a correct, live age.
+    Best-effort: a failed RPC lookup leaves the event untouched so the feed
+    never regresses."""
+    for ev in events:
+        if ev.get("timestamp"):
+            continue
+        block = ev.get("block")
+        if not block:
+            continue
+        ts = limited_call(
+            lambda b=block: int(w3.eth.get_block(b)["timestamp"]), None
+        )
+        if ts:
+            ev["timestamp"] = int(ts)
+            ev["time_ago"] = max(0, now_ts() - int(ts))
+    return events
 
 
 def _event_key(event: Dict[str, Any]) -> tuple:
@@ -593,6 +617,7 @@ def event_item(name: str, args: Dict[str, Any], block_number: int, tx_hash: str)
         "block": block_number,
         "tx_hash": tx_hash,
         "time_ago": 0,
+        "timestamp": 0,
         "detail": f"{meta['label']} on-chain.",
     }
 
@@ -871,6 +896,7 @@ def scan_new_events(from_block: int, to_block: int) -> tuple[List[Dict[str, Any]
                 )
                 block_time_cache[block_number] = timestamp
             if timestamp:
+                item["timestamp"] = int(timestamp)
                 item["time_ago"] = max(0, now_ts() - int(timestamp))
             out.append(item)
         return out
@@ -932,6 +958,7 @@ def scan_new_events(from_block: int, to_block: int) -> tuple[List[Dict[str, Any]
                 timestamp = limited_call(lambda b=block_number: int(w3.eth.get_block(b)["timestamp"]), None)
                 block_time_cache[block_number] = timestamp
             if timestamp:
+                item["timestamp"] = int(timestamp)
                 item["time_ago"] = max(0, now_ts() - int(timestamp))
             events.append(item)
 

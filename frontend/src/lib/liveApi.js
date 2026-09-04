@@ -152,16 +152,32 @@ export function mapFeedEvent(ev, index = 0) {
     escrowId: ev.escrow_id != null ? String(ev.escrow_id) : "--",
     txHash: ev.tx_hash,
     blockNumber: ev.block,
-    timeAgo:
-      ev.time_ago != null
-        ? relativeTimeLabel(ev.time_ago)
-        : "just now",
+    timeAgo: relativeTimeForEvent(ev),
     detail: ev.detail ?? `${ev.label ?? ev.event ?? "Event"} on-chain.`,
   };
 }
 
+// Prefer the event's absolute block timestamp for an accurate, live age. Older
+// persisted events only carried a `time_ago` snapshot that freezes at scan time;
+// when only that is present, convert it into an absolute timestamp so it stays
+// correct as wall-clock time advances (rather than showing a stale "just now").
+export function eventTimestamp(ev) {
+  const ts = Number(ev?.timestamp);
+  if (Number.isFinite(ts) && ts > 0) return ts;
+  const ago = Number(ev?.time_ago);
+  if (Number.isFinite(ago) && ago >= 0) {
+    return Math.floor(Date.now() / 1000) - ago;
+  }
+  return null;
+}
+
+function relativeTimeForEvent(ev) {
+  const ts = eventTimestamp(ev);
+  return ts != null ? relativeTimeLabel(Date.now() / 1000 - ts) : "just now";
+}
+
 function relativeTimeLabel(timeAgoSeconds) {
-  const diffSeconds = Math.max(0, timeAgoSeconds);
+  const diffSeconds = Math.max(0, Math.floor(timeAgoSeconds));
   if (diffSeconds < 60) return `${diffSeconds}s ago`;
   const m = Math.floor(diffSeconds / 60);
   if (m < 60) return `${m}m ago`;
@@ -184,16 +200,21 @@ export function activityEventKey(ev) {
 }
 
 export function mergeActivityHistory(existing, incoming) {
-  const seen = new Set((existing || []).map(activityEventKey));
-  const merged = (existing || []).slice();
+  // Keyed by (tx hash, block) so a re-sync can replace a stale stored event
+  // with the fresh backend copy (which now carries an absolute block
+  // timestamp) instead of letting the old snapshot win.
+  const byKey = new Map();
+  for (const ev of existing || []) {
+    const key = activityEventKey(ev);
+    if (key) byKey.set(key, ev);
+  }
   for (const ev of incoming || []) {
     const key = activityEventKey(ev);
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    merged.push(ev);
+    if (key) byKey.set(key, ev);
   }
-  merged.sort((a, b) => (b.block ?? 0) - (a.block ?? 0));
-  return merged.slice(0, MAX_ACTIVITY_HISTORY);
+  return [...byKey.values()]
+    .sort((a, b) => (b.block ?? 0) - (a.block ?? 0))
+    .slice(0, MAX_ACTIVITY_HISTORY);
 }
 
 export function loadActivityHistory() {
